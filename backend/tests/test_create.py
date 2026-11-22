@@ -208,13 +208,14 @@ def test_failed_and_rejected_checks_release_slots_but_count_checks(client, login
     assert client.get("/api/me/quota").json()["remaining"] == get_settings().daily_user_limit
 
 
-def test_global_check_cap_closes_creation(client, login, use_judge, monkeypatch):
-    login()
+def test_global_check_cap_closes_creation(client, login, use_judge, monkeypatch, db):
+    me = login()
     use_judge(FakeJudge())
     monkeypatch.setattr(get_settings(), "daily_global_checks", 0)
     res = client.post("/api/debates", json={"topic_a": "산책", "topic_b": "바다"})
     assert res.status_code == 503 and res.json()["detail"]["code"] == "global_closed"
     assert client.get("/api/me/quota").json()["remaining"] == get_settings().daily_user_limit
+    assert usage.used(db, f"check:user:{me['id']}") == 0  # AI를 안 불렀으니 사람당 확인 횟수도 그대로
 
 
 def test_logout_invalidates_copied_cookie(client, login):
@@ -232,12 +233,14 @@ def test_dev_login_disabled_on_vercel_even_without_app_env(client, monkeypatch):
     from app.config import Settings
 
     monkeypatch.setenv("VERCEL", "1")
-    with pytest.raises(ValueError):  # 운영으로 보므로 비밀값 검사도 켜진다
+    monkeypatch.setenv("VERCEL_ENV", "preview")
+    preview = Settings(app_env="development")  # Preview는 운영 비밀값을 요구하지 않는다(운영 값 복사 방지)
+    assert not preview.is_production and preview.on_vercel
+    monkeypatch.setattr("app.routers.auth.get_settings", lambda: preview)
+    assert client.post("/api/auth/dev-login").status_code == 404  # 그래도 개발용 로그인은 닫힘
+    monkeypatch.setenv("VERCEL_ENV", "production")
+    with pytest.raises(ValueError):  # Production은 APP_ENV가 없어도 비밀값 검사가 켜진다
         Settings(app_env="development")
-    prod = Settings(app_env="development", database_url="postgresql://x/y", session_secret="s" * 40, cron_secret="c", public_base_url="https://a.b")
-    assert prod.is_production
-    monkeypatch.setattr("app.routers.auth.get_settings", lambda: prod)
-    assert client.post("/api/auth/dev-login").status_code == 404
 
 
 def _kakao_state(client):

@@ -46,9 +46,15 @@ class Settings(BaseSettings):
     daily_global_checks: int = 100
 
     @property
+    def on_vercel(self) -> bool:
+        """Vercel 위(Production·Preview 모두 VERCEL=1). 개발용 로그인은 어느 Vercel 환경에서도 닫는다."""
+        return bool(os.environ.get("VERCEL"))
+
+    @property
     def is_production(self) -> bool:
-        # Vercel 위에서는 APP_ENV를 빠뜨려도 운영으로 본다(개발용 로그인이 열리거나 비밀값 검사가 빠지지 않게, F-007 R2).
-        return self.app_env == "production" or bool(os.environ.get("VERCEL"))
+        # Vercel Production은 APP_ENV를 빠뜨려도 운영으로 본다(비밀값 검사가 빠지지 않게, F-007 R2).
+        # Preview(VERCEL_ENV=preview)는 운영 비밀값·DB를 복사해 쓰지 않도록 운영으로 보지 않는다(2차 R2).
+        return self.app_env == "production" or os.environ.get("VERCEL_ENV") == "production"
 
     @model_validator(mode="after")
     def _check_production_secrets(self) -> "Settings":

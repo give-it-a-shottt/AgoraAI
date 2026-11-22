@@ -5,6 +5,7 @@ COUNT로 남은 횟수를 본 뒤 몇 초짜리 AI 확인을 하고 나서 INSER
 자리를 잡는다. 행 하나를 고치는 UPDATE는 DB가 줄을 세우므로(Postgres 행 잠금 · SQLite 쓰기 잠금) 한도를 넘지 않는다.
 """
 
+import logging
 from dataclasses import dataclass
 from datetime import date
 
@@ -15,6 +16,8 @@ from sqlalchemy.orm import Session
 
 from app.models import DailyUsage
 from app.timeutil import kst_today
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -54,6 +57,14 @@ def release(db: Session, slot: Slot | None) -> None:
         .values(used=DailyUsage.used - 1)
     )
     db.commit()
+
+
+def release_quietly(db: Session, slot: Slot | None) -> None:
+    """실패 처리 중에 부른다. 돌려주기마저 실패해도(DB 장애) 원래 예외를 가리지 않게 기록만 한다."""
+    try:
+        release(db, slot)
+    except Exception:
+        logger.exception("daily_usage 자리 돌려주기 실패: %s", slot)
 
 
 def used(db: Session, scope: str, day: date | None = None) -> int:

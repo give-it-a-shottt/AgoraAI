@@ -108,17 +108,23 @@ def create(db: Session, user: User, raw_a: str, raw_b: str, settings: Settings) 
     local = check_topic_local(topic_a, topic_b)
     if not local.allowed:
         raise TopicRejected(local.reason)
+    # 이미 AI 확인 횟수를 다 썼으면 자리를 잡았다 돌려주는 쓰기 없이 바로 거절(읽기만, 최종 판단은 아래 reserve)
+    if usage.used(db, _user_scope("check", user)) >= settings.daily_user_checks:
+        raise CheckLimitReached(_next_reset_utc())
     mine = usage.reserve(db, _user_scope("create", user), settings.daily_user_limit)
     if mine is None:
         raise UserLimitReached(_next_reset_utc())
-    everyone = usage.reserve(db, GLOBAL_CREATE, settings.daily_global_limit)
+    everyone: usage.Slot | None = None
     try:
+        everyone = usage.reserve(db, GLOBAL_CREATE, settings.daily_global_limit)
         if everyone is None:
             raise GlobalClosed
         # AI 확인 횟수는 돌려주지 않는다(거절도 API를 쓴 것).
-        if usage.reserve(db, _user_scope("check", user), settings.daily_user_checks) is None:
+        my_check = usage.reserve(db, _user_scope("check", user), settings.daily_user_checks)
+        if my_check is None:
             raise CheckLimitReached(_next_reset_utc())
         if usage.reserve(db, GLOBAL_CHECK, settings.daily_global_checks) is None:
+            usage.release_quietly(db, my_check)  # AI를 부르지 않았으니 사람당 확인 횟수는 돌려준다
             raise GlobalClosed
         try:
             check = judge_provider().check_topic(topic_a, topic_b)
@@ -128,6 +134,6 @@ def create(db: Session, user: User, raw_a: str, raw_b: str, settings: Settings) 
             raise TopicRejected(check.reason or "토론하기 어려운 주제예요.")
         return generation.create_debate(db, topic_a, topic_b, creator_id=user.id)
     except BaseException:
-        usage.release(db, everyone)
-        usage.release(db, mine)
+        usage.release_quietly(db, everyone)
+        usage.release_quietly(db, mine)
         raise

@@ -22,7 +22,7 @@ def _set_session(response: Response, user: User) -> None:
         auth.make_session(s, user),
         max_age=auth.SESSION_MAX_AGE,
         httponly=True,
-        secure=s.is_production,
+        secure=s.is_production or s.on_vercel,
         samesite="lax",
         path="/",
     )
@@ -51,7 +51,7 @@ def login(provider: str, next: Annotated[str | None, Query(max_length=512)] = No
     p = _provider_or_404(provider)
     url, state_cookie = auth.start_login(s, p, next or "/")
     res = RedirectResponse(url, status_code=302)
-    res.set_cookie(auth.STATE_COOKIE, state_cookie, max_age=auth.STATE_MAX_AGE, httponly=True, secure=s.is_production, samesite="lax", path="/api/auth")
+    res.set_cookie(auth.STATE_COOKIE, state_cookie, max_age=auth.STATE_MAX_AGE, httponly=True, secure=s.is_production or s.on_vercel, samesite="lax", path="/api/auth")
     return res
 
 

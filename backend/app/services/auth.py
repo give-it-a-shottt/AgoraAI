@@ -65,8 +65,8 @@ def configured(settings: Settings) -> dict[str, bool]:
 
 
 def dev_login_enabled(settings: Settings) -> bool:
-    """개발용 로그인은 운영이 아닐 때만(Vercel 위에서는 APP_ENV와 상관없이 운영 — config.is_production)."""
-    return not settings.is_production
+    """개발용 로그인은 로컬에서만(운영도, Vercel Preview도 아님)."""
+    return not settings.is_production and not settings.on_vercel
 
 
 def safe_next(path: str | None) -> str:
