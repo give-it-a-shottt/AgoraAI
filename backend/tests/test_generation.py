@@ -279,3 +279,42 @@ def test_common_phrases_are_not_banned(text):
 
 def test_banned_words_still_caught():
     assert moderation.contains_banned("이 병 신 같은")
+
+
+def test_dead_worker_locks_count_as_failures(db, use_debater):
+    """작업이 정리 없이 죽어 만료된 잠금만 남으면, 다음 작업이 실패로 센다 → 3번이면 AI 호출 없이 멈춤."""
+    debater = use_debater(FlakyDebater())
+    d = generation.create_debate(db, "산", "바다")
+    for _ in range(generation.MAX_FAILS - 1):
+        d.lock_until = utcnow() - timedelta(seconds=1)  # 죽은 작업이 남긴 잠금
+        db.commit()
+        token = generation._try_lock(db, d.id)
+        assert token is not None
+        generation._release_lock(db, d.id, token)
+        db.expire_all()
+    assert db.get(Debate, d.id).fail_count == generation.MAX_FAILS - 1
+    d = db.get(Debate, d.id)
+    d.lock_until = utcnow() - timedelta(seconds=1)
+    db.commit()
+    assert generation.run_next_step(d.id) == "stopped"
+    db.expire_all()
+    assert db.get(Debate, d.id).status == "paused"
+    assert debater.calls == 0
+
+
+def test_retry_is_atomic_under_double_click(db, session_factory):
+    """같은 토론을 두 요청이 동시에 읽고 재시도해도 한 번만 통과한다."""
+    d = generation.create_debate(db, "산", "바다")
+    _pause(db, d)
+    first, second = session_factory(), session_factory()
+    try:
+        a = first.get(Debate, d.id)
+        b = second.get(Debate, d.id)  # 둘 다 paused 상태를 읽음
+        generation.retry(first, a)
+        with pytest.raises(generation.NotPaused):
+            generation.retry(second, b)
+    finally:
+        first.close()
+        second.close()
+    db.expire_all()
+    assert db.get(Debate, d.id).retry_count == 1

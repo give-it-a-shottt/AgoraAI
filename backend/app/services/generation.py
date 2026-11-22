@@ -11,7 +11,7 @@ import time
 from datetime import date, datetime, timedelta
 from typing import Literal
 
-from sqlalchemy import or_, select, update
+from sqlalchemy import case, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -111,7 +111,9 @@ def generate_checked(debater: Debater, req: UtteranceRequest) -> UtteranceResult
 
 
 def _try_lock(db: Session, debate_id: str) -> datetime | None:
-    """잠금을 잡으면 이번 작업의 잠금 값(만료 시각)을, 못 잡으면 None."""
+    """잠금을 잡으면 이번 작업의 잠금 값(만료 시각)을, 못 잡으면 None.
+    만료된 잠금이 남아 있었다면 이전 작업이 정리도 못 하고 죽은 것 → 실패 1번으로 같이 센다
+    (안 세면 같은 지점에서 계속 죽을 때 재기동만 끝없이 반복된다)."""
     now = utcnow()
     token = now + LOCK_TTL
     result = db.execute(
@@ -121,7 +123,10 @@ def _try_lock(db: Session, debate_id: str) -> datetime | None:
             Debate.status == "generating",
             or_(Debate.lock_until.is_(None), Debate.lock_until < now),
         )
-        .values(lock_until=token)
+        .values(
+            lock_until=token,
+            fail_count=case((Debate.lock_until.is_not(None), Debate.fail_count + 1), else_=Debate.fail_count),
+        )
     )
     db.commit()
     return token if result.rowcount == 1 else None
@@ -186,7 +191,12 @@ def run_next_step(debate_id: str) -> StepOutcome:
             debate = s.get(Debate, debate_id)
             return "busy" if debate is not None and debate.status == "generating" else "stopped"
         try:
-            return _generate_one(s, s.get(Debate, debate_id))
+            debate = s.get(Debate, debate_id)
+            if debate.fail_count >= MAX_FAILS:
+                # 죽은 작업이 쌓여 실패 한도에 닿았다(_try_lock이 셈) → AI를 부르지 않고 멈춘다.
+                _record_failure(s, debate_id)
+                return "stopped"
+            return _generate_one(s, debate)
         except (ProviderError, OutputRejected) as exc:
             s.rollback()
             logger.warning("토론 %s 발언 생성 실패: %s", debate_id, exc)
@@ -251,20 +261,30 @@ def retry(db: Session, debate: Debate) -> None:
     """멈춘 토론을 다시 생성 중으로(DEB_01_007 [다시 시도]).
     잠금 확인: paused 토론은 작업이 돌지 않으므로 잠금을 비우고 시작한다.
     한도 확인: 토론당 MAX_RETRIES번, 멈춘 뒤 RETRY_COOLDOWN 대기. 서비스 전체 하루 한도는 F-007에서 붙인다(Q-002).
-    이어서 만들기는 호출한 쪽이 백그라운드로 건다."""
+    이어서 만들기는 호출한 쪽이 백그라운드로 건다.
+    확인과 변경을 조건부 UPDATE 한 번으로 해서, 동시에 여러 번 눌러도 한 번만 통과한다."""
+    now = utcnow()
+    result = db.execute(
+        update(Debate)
+        .where(
+            Debate.id == debate.id,
+            Debate.status == "paused",
+            Debate.retry_count < MAX_RETRIES,
+            or_(Debate.paused_at.is_(None), Debate.paused_at <= now - RETRY_COOLDOWN),
+        )
+        .values(retry_count=Debate.retry_count + 1, status="generating", fail_count=0, lock_until=None)
+    )
+    db.commit()
+    db.refresh(debate)
+    if result.rowcount == 1:
+        return
+    # 통과하지 못한 이유를 가린다.
     if debate.status != "paused":
         raise NotPaused
     if debate.retry_count >= MAX_RETRIES:
         raise RetryLimitReached
-    if debate.paused_at is not None:
-        left = (debate.paused_at + RETRY_COOLDOWN) - utcnow()
-        if left.total_seconds() > 0:
-            raise RetryTooSoon(int(left.total_seconds()) + 1)
-    debate.retry_count += 1
-    debate.status = "generating"
-    debate.fail_count = 0
-    debate.lock_until = None
-    db.commit()
+    left = (debate.paused_at + RETRY_COOLDOWN) - now if debate.paused_at else RETRY_COOLDOWN
+    raise RetryTooSoon(max(1, int(left.total_seconds()) + 1))
 
 
 def needs_kick(db: Session, debate: Debate) -> bool:

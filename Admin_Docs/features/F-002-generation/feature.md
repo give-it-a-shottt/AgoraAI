@@ -32,7 +32,7 @@
   - 서비스 전체 하루 한도 확인은 F-007에서 붙인다(Q-002). 재시도는 토론당 제한으로 먼저 막았다.
 
 ## 리뷰
-- [review/SUMMARY.md](review/SUMMARY.md) — 1차 [막힘] → 지적 반영 완료(backend 66 테스트 통과)
+- [review/SUMMARY.md](review/SUMMARY.md) — 1차 [막힘] → 반영, 2차(R2) [보완] → 반영 완료(backend 69 테스트 통과)
 
 ## 열린 질문
 - Q-002, Q-005, Q-007, Q-011
