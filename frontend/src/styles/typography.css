@@ -1,0 +1,34 @@
+/* Figma 텍스트 스타일(KR/*, EN/Logo) — 자간 -2.5%, 영문 +0.5% */
+[class*='ts-'] {
+  font-family: var(--font-kr);
+  letter-spacing: -0.025em;
+}
+.ts-display-40 { font-size: 40px; font-weight: 600; line-height: 1.3; }
+.ts-display-28 { font-size: 28px; font-weight: 600; line-height: 1.4; }
+.ts-headline-32 { font-size: 32px; font-weight: 600; line-height: 1.3; }
+.ts-headline-28 { font-size: 28px; font-weight: 600; line-height: 1.4; }
+.ts-headline-24 { font-size: 24px; font-weight: 600; line-height: 1.4; }
+.ts-headline-20 { font-size: 20px; font-weight: 600; line-height: 1.4; }
+.ts-title-20 { font-size: 20px; font-weight: 600; line-height: 1.4; }
+.ts-title-18 { font-size: 18px; font-weight: 600; line-height: 1.4; }
+.ts-title-16 { font-size: 16px; font-weight: 600; line-height: 1.4; }
+.ts-label-16 { font-size: 16px; font-weight: 600; line-height: 1.4; }
+.ts-label-14 { font-size: 14px; font-weight: 600; line-height: 1.4; }
+.ts-body-15-m { font-size: 15px; font-weight: 500; line-height: 1.45; }
+.ts-body-15-r { font-size: 15px; font-weight: 400; line-height: 1.45; }
+.ts-body-14-m { font-size: 14px; font-weight: 500; line-height: 1.45; }
+.ts-body-14-r { font-size: 14px; font-weight: 400; line-height: 1.45; }
+.ts-caption-13-m { font-size: 13px; font-weight: 500; line-height: 1.45; }
+.ts-caption-13-r { font-size: 13px; font-weight: 400; line-height: 1.45; }
+.ts-caption-12-m { font-size: 12px; font-weight: 500; line-height: 1.45; }
+.ts-caption-12-r { font-size: 12px; font-weight: 400; line-height: 1.45; }
+.ts-logo-22 { font-family: var(--font-en); font-size: 22px; font-weight: 600; line-height: 1.3; letter-spacing: 0.005em; }
+
+/* MO 반응형 텍스트 (KR/Responsive) */
+@media (max-width: 639px) {
+  .ts-display-40 { font-size: 28px; }
+  .ts-headline-32 { font-size: 24px; }
+  .ts-headline-28 { font-size: 22px; }
+  .ts-headline-24 { font-size: 20px; }
+  .ts-title-20 { font-size: 18px; }
+}

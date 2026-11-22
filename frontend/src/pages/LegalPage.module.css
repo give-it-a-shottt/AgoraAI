@@ -1,0 +1,2 @@
+.page { width: 100%; max-width: 792px; margin: 0 auto; padding: var(--space-10) var(--gutter-mo) var(--space-20); display: flex; flex-direction: column; gap: var(--space-6); }
+.list { display: flex; flex-direction: column; gap: var(--space-2); color: var(--text-sub); list-style: disc; padding-left: 20px; }

@@ -1,0 +1,43 @@
+<svg width="240" height="240" viewBox="0 0 240 240" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Characters">
+<g id="Character/&#236;&#139;&#172;&#237;&#140;&#144; &#235;&#182;&#128;&#236;&#151;&#137;&#236;&#157;&#180;">
+<g id="feet">
+<path id="Vector" d="M83 195C77 201 76 209 80 213C85 217 98 216 103 212L105 198L83 195Z" fill="#D9916F" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" stroke="#493B36"/>
+<path id="Vector_2" d="M132 198L134 212C139 216 153 217 157 212C160 207 156 200 152 195L132 198Z" fill="#D9916F" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" stroke="#493B36"/>
+</g>
+<g id="owl-body">
+<path id="Vector_3" d="M57 72C52 61 53 47 59 39C67 40 78 47 84 51C105 43 133 43 153 51C160 46 170 40 178 39C183 49 184 64 178 75C190 91 194 114 193 138C192 181 166 205 120 206C74 207 46 183 45 144C44 116 46 92 57 72Z" fill="#9D7057" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" stroke="#493B36"/>
+<path id="Vector_4" d="M63 101C64 75 91 62 111 78C115 81 118 85 120 89C131 67 159 68 172 87C185 106 176 127 174 143C176 172 157 192 120 193C84 193 63 175 65 148C66 134 58 119 63 101Z" fill="#F5E8D9"/>
+<path id="Vector_5" d="M56 140C57 153 64 166 75 170C80 172 84 169 83 164L76 145" stroke-width="4" stroke-linecap="round" stroke="#493B36"/>
+</g>
+<g id="face">
+<path id="Vector_6" d="M81 89C87 86.3333 92.6667 86 98 88" stroke-width="4" stroke-linecap="round" stroke="#72513F"/>
+<path id="Vector_7" d="M141 88C146.333 86 152 86.3333 158 89" stroke-width="4" stroke-linecap="round" stroke="#72513F"/>
+<path id="Vector_8" d="M77 136C82.5228 136 87 133.314 87 130C87 126.686 82.5228 124 77 124C71.4772 124 67 126.686 67 130C67 133.314 71.4772 136 77 136Z" fill="#DEA08A"/>
+<path id="Vector_9" d="M162 136C167.523 136 172 133.314 172 130C172 126.686 167.523 124 162 124C156.477 124 152 126.686 152 130C152 133.314 156.477 136 162 136Z" fill="#DEA08A"/>
+<path id="Vector_10" d="M92 115.5C95.0376 115.5 97.5 113.038 97.5 110C97.5 106.962 95.0376 104.5 92 104.5C88.9624 104.5 86.5 106.962 86.5 110C86.5 113.038 88.9624 115.5 92 115.5Z" fill="#493B36"/>
+<path id="Vector_11" d="M147 115.5C150.038 115.5 152.5 113.038 152.5 110C152.5 106.962 150.038 104.5 147 104.5C143.962 104.5 141.5 106.962 141.5 110C141.5 113.038 143.962 115.5 147 115.5Z" fill="#493B36"/>
+<path id="Vector_12" d="M112 125C117.333 121.667 122.333 121.667 127 125C125.667 129.667 123.333 133 120 135C116 133 113.333 129.667 112 125Z" fill="#D9916F" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" stroke="#493B36"/>
+</g>
+<g id="round-glasses">
+<path id="Vector_13" d="M109 111C109 120.389 101.389 128 92 128C82.6112 128 75 120.389 75 111C75 101.611 82.6112 94 92 94C101.389 94 109 101.611 109 111Z" stroke-width="3.5" stroke="#493B36"/>
+<path id="Vector_14" d="M164 111C164 120.389 156.389 128 147 128C137.611 128 130 120.389 130 111C130 101.611 137.611 94 147 94C156.389 94 164 101.611 164 111Z" stroke-width="3.5" stroke="#493B36"/>
+<path id="Vector_15" d="M109 110C115.667 106 122.667 106 130 110M75 108L67 105M164 108L172 105" stroke-width="3.5" stroke-linecap="round" stroke="#493B36"/>
+</g>
+<g id="judges-collar">
+<path id="Vector_16" d="M99 148C113 152 127 152 141 148L144 164C128 171.333 111.667 171.333 95 164L99 148Z" fill="#493B36" stroke-width="4" stroke-linejoin="round" stroke="#493B36"/>
+<path id="Vector_17" d="M99 146L120 152L109 165L96 154L99 146Z" fill="#FFF7ED" stroke-width="3.5" stroke-linejoin="round" stroke="#493B36"/>
+<path id="Vector_18" d="M120 152L140 146L144 154L130 165L120 152Z" fill="#FFF7ED" stroke-width="3.5" stroke-linejoin="round" stroke="#493B36"/>
+</g>
+<g id="wooden-gavel">
+<path id="Vector_19" d="M171 159L193 112L201 116L181 163C178.333 166.333 175.667 167 173 165C171 163.667 170.333 161.667 171 159Z" fill="#B87D57" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" stroke="#493B36"/>
+<path id="Vector_20" d="M180 94L213 109L207 122L174 107L180 94Z" fill="#9D7057" stroke-width="4" stroke-linejoin="round" stroke="#493B36"/>
+<path id="Vector_21" d="M178 90L186 94L177 113L169 109L178 90Z" fill="#BC8864" stroke-width="4" stroke-linejoin="round" stroke="#493B36"/>
+<path id="Vector_22" d="M209 104L217 108L208 127L200 123L209 104Z" fill="#BC8864" stroke-width="4" stroke-linejoin="round" stroke="#493B36"/>
+</g>
+<g id="holding-wing">
+<path id="Vector_23" d="M155 165C160 156 166 151 174 149C179 147 185 151 185 156C185 165 175 178 165 179C160 179 156 176 154 173" fill="#9D7057" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" stroke="#493B36"/>
+</g>
+</g>
+</g>
+</svg>

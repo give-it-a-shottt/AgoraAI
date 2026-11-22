@@ -1,0 +1,7 @@
+.logo { display: inline-flex; align-items: center; gap: 4px; color: var(--text-main); }
+.ai {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 1px 6px; border-radius: var(--radius-box);
+  background: var(--primary-default); color: var(--text-inverse);
+  font-family: var(--font-en); font-weight: 600; font-size: 15px; line-height: 1.4; letter-spacing: 0.005em;
+}

@@ -1,0 +1,33 @@
+<svg width="240" height="240" viewBox="0 0 240 240" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Characters">
+<g id="Character/B &#237;&#142;&#173;&#237;&#142;&#173;&#236;&#157;&#180;">
+<g id="feet">
+<path id="Vector" d="M81 195C72 199 64 211 68 216C72 221 99 218 108 214V199L81 195Z" fill="#E99B70" stroke-width="4" stroke-linejoin="round" stroke="#393638"/>
+<path id="Vector_2" d="M159 195C168 199 176 211 172 216C168 221 141 218 132 214V199L159 195Z" fill="#E99B70" stroke-width="4" stroke-linejoin="round" stroke="#393638"/>
+</g>
+<g id="penguin-body">
+<path id="Vector_3" d="M120 25C80 25 60 51 56 88C53 114 43 142 48 170C53 200 80 210 120 210C160 210 187 200 192 170C197 142 187 114 184 88C180 51 160 25 120 25Z" fill="#494548" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" stroke="#393638"/>
+<path id="Vector_4" d="M120 65C105 45 81 50 73 74C65 97 78 114 75 126C72 140 61 155 66 175C71 196 93 201 120 201C147 201 169 196 174 175C179 155 168 140 165 126C162 114 175 97 167 74C159 50 135 45 120 65Z" fill="#FFF2E4"/>
+</g>
+<g id="face">
+<path id="Vector_5" d="M86 74L99 77" stroke-width="4" stroke-linecap="round" stroke="#494548"/>
+<path id="Vector_6" d="M140 73C144.667 70.3333 149 70 153 72" stroke-width="4" stroke-linecap="round" stroke="#494548"/>
+<path id="Vector_7" d="M94 94.5C97.0376 94.5 99.5 91.5899 99.5 88C99.5 84.4101 97.0376 81.5 94 81.5C90.9624 81.5 88.5 84.4101 88.5 88C88.5 91.5899 90.9624 94.5 94 94.5Z" fill="#393638"/>
+<path id="Vector_8" d="M146 94.5C149.038 94.5 151.5 91.5899 151.5 88C151.5 84.4101 149.038 81.5 146 81.5C142.962 81.5 140.5 84.4101 140.5 88C140.5 91.5899 142.962 94.5 146 94.5Z" fill="#393638"/>
+<path id="Vector_9" d="M81 109C86.5228 109 91 106.314 91 103C91 99.6863 86.5228 97 81 97C75.4772 97 71 99.6863 71 103C71 106.314 75.4772 109 81 109Z" fill="#E9A5A1"/>
+<path id="Vector_10" d="M159 109C164.523 109 169 106.314 169 103C169 99.6863 164.523 97 159 97C153.477 97 149 99.6863 149 103C149 106.314 153.477 109 159 109Z" fill="#E9A5A1"/>
+<path id="Vector_11" d="M109 101C116.333 96.3333 123.667 96.3333 131 101C129 108.333 125.333 112.333 120 113C115.333 111.667 111.667 107.667 109 101Z" fill="#E99B70" stroke-width="3" stroke-linejoin="round" stroke="#393638"/>
+<path id="Vector_12" d="M111 103C117.667 105.667 124 105 130 101" stroke-width="3" stroke-linecap="round" stroke="#393638"/>
+</g>
+<g id="bow-tie">
+<path id="Vector_13" d="M116 126L104 121C102 120.333 101 121.333 101 124V136C101 138 102.333 138.333 105 137L116 132V126ZM124 126L136 121C138 120.333 139 121.333 139 124V136C139 138 137.667 138.333 135 137L124 132V126Z" fill="#E99B70" stroke-width="3" stroke-linejoin="round" stroke="#393638"/>
+<path id="Vector_14" d="M121 124H119C116.791 124 115 125.791 115 128V131C115 133.209 116.791 135 119 135H121C123.209 135 125 133.209 125 131V128C125 125.791 123.209 124 121 124Z" fill="#E9A5A1" stroke-width="3" stroke="#393638"/>
+</g>
+<g id="crossed-flippers">
+<path id="Vector_15" d="M174 132C173 149 151 165 101 173C91 175 85 170 88 164C93 156 125 153 143 142" fill="#494548" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" stroke="#393638"/>
+<path id="Vector_16" d="M66 132C68 151 91 164 139 173C149 175 156 170 152 164C147 157 114 152 97 141" fill="#494548" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" stroke="#393638"/>
+<path id="Vector_17" d="M84 149C99 157 116 161 132 164" stroke-width="3" stroke-linecap="round" stroke="#696064"/>
+</g>
+</g>
+</g>
+</svg>

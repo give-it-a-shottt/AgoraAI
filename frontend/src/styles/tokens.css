@@ -1,0 +1,85 @@
+/* 디자인 토큰 — agora-design.md §1·§2·§8, Figma 변수 값 그대로.
+   html 속성: data-radius="round" data-brand="agora" (Light 테마만) */
+:root {
+  /* text */
+  --text-main: #111111;
+  --text-sub: #424242;
+  --text-sub-weak: #757575; /* 회색 면 위에서는 쓰지 않는다(§2 ③) */
+  --text-disabled: #9e9e9e;
+  --text-inverse: #ffffff;
+  /* bg */
+  --bg-default: #ffffff;
+  --bg-light: #fafafa;
+  --bg-regular: #f5f5f5;
+  --bg-inverse: #111111;
+  --bg-dim: rgb(17 17 17 / 0.5);
+  /* line */
+  --line-light: #eeeeee;
+  --line-regular: #e0e0e0;
+  --line-strong: #bdbdbd;
+  /* icon */
+  --icon-main: #212121;
+  --icon-sub: #616161;
+  /* status */
+  --status-success-base: #2e9e6a;
+  --status-success-text: #1e6b47;
+  --status-success-bg: #eef8f2;
+  --status-error-base: #e5484d;
+  --status-error-text: #c62a2f;
+  --status-error-bg: #fdeeee;
+  /* social (§7) */
+  --social-kakao: #fee500;
+
+  /* spacing (4배수 + 6) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-14: 56px;
+  --space-20: 80px;
+
+  /* radius (Round 모드) */
+  --radius-box: 6px;
+  --radius-button: 12px;
+  --radius-card: 24px;
+  --radius-sheet: 24px;
+  --radius-input: 999px;
+  --radius-tag: 999px;
+  --radius-full: 999px;
+
+  --shadow-2: 0 8px 24px rgb(17 17 17 / 0.12);
+
+  --font-kr: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  --font-en: 'Poppins', var(--font-kr);
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-base: 200ms;
+
+  --container: 1200px;
+  --gutter-mo: 20px;
+}
+
+/* 브랜드 02 Agora (§8 그대로) */
+:root[data-brand='agora'] {
+  --primary-default: #056fc5;
+  --primary-hover: #0563b0;
+  --primary-pressed: #044e8a;
+  --primary-text: #056fc5;
+  --primary-soft: #ebf5fe;
+  --primary-soft-pressed: #d7ecfc;
+  --primary-accent: #0686ef;
+  --primary-focus-halo: rgb(6 134 239 / 0.4);
+  --sub1-base: #ffd43b;
+  --sub1-soft: #fffcef;
+  --sub1-text: #7e681b;
+  --sub2-base: #ff4f86;
+  --sub2-soft: #fff1f5;
+  --sub2-text: #bb3861;
+}

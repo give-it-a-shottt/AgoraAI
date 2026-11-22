@@ -1,0 +1,40 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: var(--radius-button);
+  font-family: var(--font-kr);
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: -0.025em;
+  white-space: nowrap;
+  transition: background-color 120ms ease;
+}
+.xl { height: 56px; padding: 0 20px; font-size: 16px; }
+.l { height: 48px; padding: 0 16px; font-size: 16px; }
+.m { height: 40px; padding: 0 14px; font-size: 14px; }
+.full { width: 100%; }
+
+.icon { display: inline-flex; width: 20px; height: 20px; align-items: center; justify-content: center; font-size: 20px; }
+
+.primary { background: var(--primary-default); color: var(--text-inverse); }
+.primary:hover { background: var(--primary-hover); }
+.primary:active { background: var(--primary-pressed); }
+
+.secondary { background: var(--bg-regular); color: var(--text-main); }
+.secondary:hover { background: var(--line-light); }
+
+.text { background: transparent; color: var(--text-main); }
+.text:hover { background: var(--bg-regular); }
+.toneSub { color: var(--text-sub); }
+
+.button:disabled,
+.button[aria-disabled='true'] {
+  background: var(--bg-regular);
+  color: var(--text-disabled);
+}
+.text:disabled,
+.text[aria-disabled='true'] {
+  background: transparent;
+}
