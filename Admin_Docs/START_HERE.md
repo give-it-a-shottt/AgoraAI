@@ -1,6 +1,7 @@
 # Agora AI 토론장
 
 ## 내가 할 일
+- 배포하기: Neon DB·Vercel 연결·환경변수·로그인 콘솔 설정 → 레포 루트 DEPLOY.md
 - 배포 때 확인: AI 대리 작성 칸 검토 → 각 feature.md의 "(AI 대리 작성 — 사용자 위임)" 표시 칸
 - 배포 때 확인: 내가 정할 질문 → OPEN_QUESTIONS.md "사용자" 줄
 
