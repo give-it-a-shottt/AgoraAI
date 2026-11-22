@@ -21,7 +21,7 @@
 | GET /api/debates/similar?a=&b= | - | - | `{debate: DebateSummary \| null}` | - |
 | GET /api/debates/{id} | - | - | DebateDetail(가려진 토론은 hidden=true, 개수 0) | 404 `not_found`, 422(id 16자 초과) |
 | GET /api/debates/{id}/utterances?after=0 | - | - | `{items: Utterance[], status, total: 6}` — after보다 큰 순번만. 생성 중인데 20초 넘게 새 발언·잠금이 없으면 서버가 다시 깨움(paused는 안 깨움) | 404, 410 `hidden`, 422(after 0~6 밖, id 16자 초과) |
-| POST /api/debates/{id}/retry | - | - | `{status}` (generating으로 바뀌고 백그라운드로 이어서 생성) | 404, 410 `hidden`, 409 `not_paused`·`retry_limit`(토론당 3번), 429 `retry_too_soon`(+retry_after 초, 멈춘 뒤 60초), 503 `global_closed`(F-007에서 적용 예정) |
+| POST /api/debates/{id}/retry | - | - | `{status}` (generating으로 바뀌고 백그라운드로 이어서 생성) | 404, 410 `hidden`, 409 `not_paused`·`retry_limit`(토론당 3번), 429 `retry_too_soon`(+retry_after 초, 멈춘 뒤 60초) | (전체 하루 마감에는 막지 않음 — 위 횟수·대기로 따로 막음)
 | POST /api/debates/{id}/predictions | - | `{pick: "A"\|"B"}` | `{pick}` (이미 했으면 처음 값) | 400 `browser_id_required`, 404, 410 `hidden`, 422, 429 `too_many_requests`(+retry_after, 접속자당 10분 30개) |
 | GET /api/debates/{id}/predictions/me | - | - | `{pick: "A"\|"B"\|null}` | 400 `browser_id_required`, 404, 410 `hidden` |
 | POST /api/utterances/{id}/empathy | - | - | `{count, empathized: true}` (이미 했으면 그대로) | 400 `browser_id_required`, 404, 410 `hidden`, 422, 429 `too_many_requests`(접속자당 10분 60개) |
@@ -29,7 +29,7 @@
 | POST /api/debates/{id}/judge/retry | - | - | Result(judge_status=pending으로 바로 돌려주고 판정은 백그라운드 — 화면은 결과를 다시 읽음) | 400, 404, 410, 409 `not_finished`·`not_failed`·`judge_limit`(토론당 판정 시도 4번) |
 | POST /api/debates/{id}/reports | - | `{reason: "hate"\|"person"\|"sexual"\|"offtopic"\|"other"}` | `{reported: true, hidden}` (브라우저당 1번, 서로 다른 접속자 3곳이면 hidden — Q-013) | 400, 404, 410, 422, 429 `too_many_requests`(접속자당 1시간 10건) |
 | GET /api/me/quota | 필요 | - | `{remaining, limit, reset_at}` | 401 |
-| POST /api/debates | 필요 | `{topic_a, topic_b}` (각 2~30자) | 201 `{id}` | 401, 422 `topic_rejected`(+reason, suggestions), 429 `user_limit`(+reset_at), 503 `global_closed`, 502 `check_failed` |
+| POST /api/debates | 필요 | `{topic_a, topic_b}` (각 2~30자) | 201 `{id}` (주제 확인 통과 후 생성, 발언은 백그라운드) | 401, 422 `topic_invalid`(길이·꺾쇠 기호) · `topic_rejected`(message에 이유, suggestions: `[{a, b}]`), 429 `user_limit`(+reset_at), 503 `global_closed`, 502 `check_failed` |
 | GET /api/auth/me | - | - | `{user: {id, nickname} \| null}` | - |
 | GET /api/auth/providers | - | - | `{google, kakao, dev}` (bool) | - |
 | GET /api/auth/{google\|kakao}/login?next= | - | - | 302 → 제공자 | 404 미설정 |

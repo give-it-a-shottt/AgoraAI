@@ -1,0 +1,34 @@
+.page {
+  width: 100%; max-width: 588px; margin: 0 auto;
+  display: flex; flex-direction: column; gap: var(--space-8);
+  padding: var(--space-10) 0 var(--space-20);
+}
+.back { display: inline-flex; align-items: center; gap: var(--space-1); color: var(--text-sub); width: fit-content; }
+.head { display: flex; flex-direction: column; gap: var(--space-2); }
+.sub { color: var(--text-sub); }
+.weak { color: var(--text-sub-weak); }
+.suggest { display: flex; flex-direction: column; gap: var(--space-3); }
+.chips { display: flex; flex-wrap: wrap; gap: var(--space-2); justify-content: inherit; }
+.form { display: flex; flex-direction: column; align-items: center; gap: var(--space-3); }
+.vs { font-family: var(--font-en); font-size: 16px; font-weight: 600; line-height: 1.3; color: var(--text-sub-weak); }
+.similar { width: 100%; display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-4) var(--space-5); border-radius: var(--radius-card); background: var(--bg-regular); }
+.similarTitle { display: flex; align-items: center; gap: var(--space-2); font-size: 16px; font-weight: 600; line-height: 1.4; letter-spacing: -0.025em; }
+.similarLink { display: inline-flex; align-items: center; gap: 6px; height: 40px; width: fit-content; }
+.actions { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); margin-top: var(--space-5); }
+.remain { display: flex; flex-direction: column; gap: var(--space-1); }
+.submit { width: 282px; }
+.state { flex: 1; min-height: 740px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-4); padding: var(--space-10) var(--gutter-mo); text-align: center; }
+.spinner { width: 40px; height: 40px; border-radius: 50%; border: 4px solid var(--bg-regular); border-top-color: var(--primary-default); animation: spin 0.9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 3s; } }
+
+@media (max-width: 627px) { .page { padding-left: var(--gutter-mo); padding-right: var(--gutter-mo); } }
+@media (max-width: 639px) {
+  .page { padding-top: var(--space-6); padding-bottom: calc(var(--space-20) + 56px); gap: var(--space-6); }
+  .actions { flex-direction: column; align-items: stretch; }
+  .submit {
+    position: fixed; left: var(--gutter-mo); right: var(--gutter-mo); bottom: calc(var(--space-5) + env(safe-area-inset-bottom));
+    width: auto; z-index: 20;
+  }
+  .state { min-height: 60vh; }
+}

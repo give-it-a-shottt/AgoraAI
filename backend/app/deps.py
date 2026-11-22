@@ -3,13 +3,13 @@
 import uuid
 from typing import Annotated
 
-from fastapi import Depends, Header, Path, Request
+from fastapi import Cookie, Depends, Header, Path, Request
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.db import get_db
 from app.errors import api_error
-from app.models import Debate
+from app.models import Debate, User
 from app.services.throttle import client_hash
 
 DB = Annotated[Session, Depends(get_db)]
@@ -66,3 +66,23 @@ def load_visible_debate(db: Session, debate_id: str) -> Debate:
     if debate.is_hidden:
         raise api_error(410, "hidden", "신고가 많아 가려진 토론이에요.")
     return debate
+
+
+def current_user(db: DB, agora_session: Annotated[str | None, Cookie()] = None) -> User | None:
+    """서명된 세션 쿠키로 로그인한 사용자(없으면 None). 쿠키는 HttpOnly라 자바스크립트가 못 읽는다(D-004)."""
+    from app.services import auth
+
+    uid = auth.read_session(get_settings(), agora_session)
+    return db.get(User, uid) if uid else None
+
+
+CurrentUser = Annotated[User | None, Depends(current_user)]
+
+
+def require_user(user: CurrentUser) -> User:
+    if user is None:
+        raise api_error(401, "login_required", "로그인하고 토론을 만들 수 있어요.")
+    return user
+
+
+LoggedInUser = Annotated[User, Depends(require_user)]

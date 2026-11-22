@@ -16,7 +16,7 @@
 | /terms, /privacy | pages/LegalPage.tsx | - | 임시 안내 (Q-008) |
 | * | pages/NotFoundPage.tsx | COM_01_003 | |
 | (오류) | pages/RouteErrorPage.tsx | - | 화면을 그리다 예상 못 한 오류(라우터 errorElement) |
-| (전역) | components/LoginModal | COM_01_001 | |
+| (전역) | features/auth/LoginModal.tsx (Layout의 AuthProvider가 띄움) | COM_01_001 | 로그인 뒤 원래 주소로, 만들기 입력은 탭 저장소에 유지 |
 | (전역) | components/StateBlock + NetworkError | COM_01_002 | 요청 실패 시 각 화면 안에 표시 |
 | (서버) /share/:id | backend share 라우터 | - | OG HTML → /debates/:id |
 

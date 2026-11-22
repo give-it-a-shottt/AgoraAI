@@ -64,9 +64,9 @@ describe('HomePage (HOM_01_001)', () => {
     })
     const { router } = renderPage(<HomePage />)
     expect(await screen.findByRole('heading', { name: '아직 토론이 없어요' })).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: '산 vs 바다' }))
+    await userEvent.click(screen.getByRole('button', { name: '등산 vs 바다' }))
     expect(router.state.location.pathname).toBe('/create')
-    expect(router.state.location.search).toContain('a=%EC%82%B0')
+    expect(router.state.location.search).toContain(`a=${encodeURIComponent('등산')}`)
   })
 
   it('불러오기 실패면 다시 시도 안내', async () => {

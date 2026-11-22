@@ -3,6 +3,8 @@ import { Gnb } from './Gnb'
 import { Footer } from './Footer'
 import styles from './Layout.module.css'
 import { ToastProvider } from '../components/Toast'
+import { AuthProvider } from '../features/auth/auth'
+import { useAuth } from '../features/auth/authContext'
 
 export type RouteHandle = { hideFooter?: boolean }
 
@@ -13,12 +15,18 @@ export function Layout() {
 
   return (
     <ToastProvider>
-      {/* TODO(F-007): 로그인 상태·로그인 모달 연결 전까지 임시 값 */}
-      <Gnb nickname={null} onLogin={() => {}} onLogout={() => {}} />
-      <main id="main" className={styles.main}>
-        <Outlet />
-      </main>
-      {!hideFooter && <Footer />}
+      <AuthProvider>
+        <AuthedGnb />
+        <main id="main" className={styles.main}>
+          <Outlet />
+        </main>
+        {!hideFooter && <Footer />}
+      </AuthProvider>
     </ToastProvider>
   )
+}
+
+function AuthedGnb() {
+  const auth = useAuth()
+  return <Gnb nickname={auth.user?.nickname ?? null} onLogin={() => auth.openLogin()} onLogout={auth.logout} />
 }

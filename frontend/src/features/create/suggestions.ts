@@ -2,7 +2,7 @@
 export type TopicPair = { a: string; b: string }
 
 export const TOPIC_SUGGESTIONS: TopicPair[] = [
-  { a: '산', b: '바다' },
+  { a: '등산', b: '바다' },
   { a: '민트초코', b: '반민초' },
   { a: '깻잎 논쟁 허용', b: '금지' },
   { a: '평생 짜장', b: '평생 짬뽕' },
