@@ -1,0 +1,8 @@
+.stepper { flex: 1; min-width: 0; display: flex; gap: 4px; }
+.step { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.bar { height: 4px; border-radius: 2px; background: var(--line-regular); }
+.past .bar, .current .bar { background: var(--primary-default); }
+.label { font-size: 12px; line-height: 1.45; letter-spacing: -0.025em; white-space: nowrap; }
+.past .label { color: var(--text-sub); font-weight: 400; }
+.current .label { color: var(--text-main); font-weight: 500; }
+.future .label { color: var(--text-sub-weak); font-weight: 400; }

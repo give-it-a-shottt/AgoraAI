@@ -1,0 +1,188 @@
+import { act, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { Utterance, UtteranceList } from '../api/types'
+import { ToastProvider } from '../components/Toast'
+import { setViewChoice } from '../lib/viewState'
+import { mockApi } from '../test/fetchMock'
+import { debate } from '../test/fixtures'
+import { renderRoute } from '../test/render'
+import { AUTO_ADVANCE_MS, StagePage, STALLED_AFTER_S, SLOW_AFTER_S } from './StagePage'
+
+const detail = { ...debate(), hidden: false, utterance_count: 0 }
+
+function utt(seq: number, over: Partial<Utterance> = {}): Utterance {
+  const side = seq % 2 === 1 ? 'A' : 'B'
+  return {
+    id: seq,
+    seq,
+    round: Math.ceil(seq / 2),
+    side,
+    character: side === 'A' ? 'cat' : 'penguin',
+    text: `${seq}번째 발언이에요.`,
+    caption: `자막${seq}`,
+    empathy_count: 0,
+    ...over,
+  }
+}
+
+const list = (n: number, status: UtteranceList['status'] = 'done'): UtteranceList => ({
+  items: Array.from({ length: n }, (_, i) => utt(i + 1)),
+  status,
+  total: 6,
+})
+
+function stubMedia(reduced: boolean) {
+  vi.stubGlobal('matchMedia', (query: string) => ({
+    matches: reduced && query.includes('reduced-motion'),
+    media: query,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  }))
+}
+
+function setup(body: UtteranceList | (() => UtteranceList), extra?: (url: URL, init: RequestInit) => { status?: number; body?: unknown } | undefined) {
+  const fetchFn = mockApi((url, init) => {
+    const hit = extra?.(url, init)
+    if (hit) return hit
+    if (url.pathname === '/api/debates/d1') return { body: detail }
+    if (url.pathname === '/api/debates/d1/utterances') return { body: typeof body === 'function' ? body() : body }
+  })
+  const utils = renderRoute(
+    [
+      { path: '/debates/:id/stage', element: <ToastProvider><StagePage /></ToastProvider> },
+      { path: '/debates/:id/result', element: <div>result page</div> },
+      { path: '/debates/:id', element: <div>predict page</div> },
+    ],
+    '/debates/d1/stage',
+  )
+  return { fetchFn, ...utils }
+}
+
+beforeEach(() => stubMedia(true)) // 기본은 동작 줄이기(타자 효과 즉시)
+afterEach(() => {
+  vi.useRealTimers()
+  vi.unstubAllGlobals()
+  localStorage.clear()
+})
+
+describe('StagePage (DEB_01_002)', () => {
+  it('다시보기는 자막 뒤 자동으로 다음 발언, 정지 버튼으로 멈춘다', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    setup(list(6))
+    expect(await screen.findByText('1번째 발언이에요.', { selector: '[aria-hidden="true"]' })).toBeInTheDocument()
+    expect(screen.getByText('자막1')).toBeInTheDocument()
+    expect(screen.getByText('핵심 한 줄:')).toHaveClass('sr-only')
+    expect(screen.getByText('1R 주장 · 냥냥이 발언')).toHaveAttribute('aria-live', 'polite')
+    expect(screen.getByRole('listitem', { current: 'step' })).toHaveTextContent('1R 주장')
+
+    await act(async () => vi.advanceTimersByTime(AUTO_ADVANCE_MS + 10))
+    expect(screen.getByText('자막2')).toBeInTheDocument()
+
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    await user.click(screen.getByRole('button', { name: '자동 진행 멈춤' }))
+    expect(screen.getByRole('button', { name: '자동 진행 재생' })).toHaveAttribute('aria-pressed', 'true')
+    await act(async () => vi.advanceTimersByTime(AUTO_ADVANCE_MS * 2))
+    expect(screen.getByText('자막2')).toBeInTheDocument()
+    expect(screen.queryByText('자막3')).not.toBeInTheDocument()
+  })
+
+  it('타자 효과 중 [다음 발언]은 즉시 완성, 다시 누르면 다음으로', async () => {
+    stubMedia(false)
+    setup(list(2, 'generating'))
+    const next = await screen.findByRole('button', { name: '다음 발언' })
+    expect(screen.queryByText('자막1')).not.toBeInTheDocument()
+    await userEvent.click(next)
+    expect(screen.getByText('자막1')).toBeInTheDocument()
+    expect(screen.getByText('1번째 발언이에요.', { selector: '[aria-hidden="true"]' })).toBeInTheDocument()
+    await userEvent.click(next)
+    expect(await screen.findByText('2번째 발언이에요.', { selector: '.sr-only' })).toBeInTheDocument()
+  })
+
+  it('생성 중 다음 발언이 없으면 이유와 함께 비활성, 30초·60초 안내', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    setup(list(1, 'generating'))
+    const next = await screen.findByRole('button', { name: '다음 발언' })
+    expect(next).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getAllByText('펭펭이가 1R 주장 준비 중이에요').length).toBeGreaterThan(0)
+    expect(screen.queryByRole('button', { name: /자동 진행/ })).not.toBeInTheDocument() // 생성 중엔 자동 진행 없음
+
+    await act(async () => vi.advanceTimersByTime((SLOW_AFTER_S + 1) * 1000))
+    expect(screen.getByText('생각보다 오래 걸리고 있어요')).toBeInTheDocument()
+    await act(async () => vi.advanceTimersByTime((STALLED_AFTER_S - SLOW_AFTER_S) * 1000))
+    expect(screen.getByRole('alert')).toHaveTextContent('토론이 잠깐 멈췄어요')
+  })
+
+  it('첫 발언 전에는 대기 표정', async () => {
+    setup(list(0, 'generating'))
+    expect(await screen.findByText('냥냥이가 1R 주장을 준비하고 있어요')).toBeInTheDocument()
+  })
+
+  it('멈춘 토론은 DEB_01_007 — 보기·다시 시도·대기 안내', async () => {
+    let status: UtteranceList['status'] = 'paused'
+    const { fetchFn } = setup(
+      () => ({ ...list(4), status }),
+      (url, init) => {
+        if (url.pathname === '/api/debates/d1/retry' && init.method === 'POST') {
+          return { status: 429, body: { detail: { code: 'retry_too_soon', message: 'x', retry_after: 42 } } }
+        }
+      },
+    )
+    expect(await screen.findByRole('heading', { name: '토론이 잠깐 멈췄어요' })).toBeInTheDocument()
+    expect(screen.getByText(/2라운드까지는 완성됐어요/)).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: '다시 시도' }))
+    expect(await screen.findByText('42초 뒤에 다시 시도해 주세요.')).toBeInTheDocument()
+    expect(fetchFn.mock.calls.some((c) => String(c[0]).endsWith('/retry'))).toBe(true)
+
+    await userEvent.click(screen.getByRole('button', { name: '2라운드까지 보기' }))
+    expect(screen.getByText('자막1')).toBeInTheDocument()
+    status = 'paused'
+  })
+
+  it('마지막 발언 뒤 [결과 보기]로 결과 화면', async () => {
+    const { router } = setup(list(6))
+    for (let i = 0; i < 5; i++) await userEvent.click(await screen.findByRole('button', { name: '다음 발언' }))
+    await userEvent.click(screen.getByRole('button', { name: '결과 보기' }))
+    expect(router.state.location.pathname).toBe('/debates/d1/result')
+  })
+
+  it('공감은 한 번, 눌림 상태와 수가 바뀐다', async () => {
+    const { fetchFn } = setup(list(1, 'generating'), (url, init) => {
+      if (url.pathname === '/api/utterances/1/empathy' && init.method === 'POST') return { body: { count: 13, empathized: true } }
+    })
+    const button = await screen.findByRole('button', { name: '공감 0' })
+    await userEvent.click(button)
+    expect(await screen.findByRole('button', { name: '공감 13' })).toHaveAttribute('aria-pressed', 'true')
+    await userEvent.click(screen.getByRole('button', { name: '공감 13' }))
+    expect(fetchFn.mock.calls.filter((c) => String(c[0]).includes('/empathy'))).toHaveLength(1)
+  })
+
+  it('[결과 바로 보기]는 예측·건너뛰기 뒤에만', async () => {
+    setup(list(2))
+    await screen.findByText('자막1')
+    expect(screen.queryByRole('button', { name: '결과 바로 보기' })).not.toBeInTheDocument()
+  })
+
+  it('예측했으면 [결과 바로 보기]가 보인다', async () => {
+    setViewChoice('d1', 'skip')
+    const { router } = setup(list(2))
+    await userEvent.click(await screen.findByRole('button', { name: '결과 바로 보기' }))
+    expect(router.state.location.pathname).toBe('/debates/d1/result')
+  })
+
+  it('지난 발언 펼쳐 보기', async () => {
+    setup(list(3, 'generating'))
+    await userEvent.click(await screen.findByRole('button', { name: '다음 발언' }))
+    await userEvent.click(screen.getByRole('button', { name: '다음 발언' }))
+    await userEvent.click(screen.getByRole('button', { name: '지난 발언 2개 펼쳐 보기' }))
+    expect(screen.getByText('“자막1”')).toBeInTheDocument()
+    expect(screen.getByText('1R 주장 · 냥냥이')).toBeInTheDocument()
+  })
+
+  it('가려진 토론(410)이면 DEB_01_008', async () => {
+    setup(list(0), (url) => {
+      if (url.pathname === '/api/debates/d1/utterances') return { status: 410, body: { detail: { code: 'hidden', message: 'x' } } }
+    })
+    expect(await screen.findByRole('heading', { name: '신고가 많아 가려 둔 토론이에요' })).toBeInTheDocument()
+  })
+})

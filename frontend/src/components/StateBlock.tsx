@@ -3,7 +3,7 @@ import { Button } from './Button'
 import { Character, type CharacterKey } from './Character'
 import styles from './StateBlock.module.css'
 
-type Action = { label: string; onClick: () => void }
+type Action = { label: string; onClick: () => void; variant?: 'secondary' | 'text' }
 
 type Props = {
   title: string
@@ -43,7 +43,12 @@ export function StateBlock({
               </Button>
             )}
             {secondary && (
-              <Button size="l" variant="secondary" fullWidth onClick={secondary.onClick}>
+              <Button
+                size={secondary.variant === 'text' ? 'm' : 'l'}
+                variant={secondary.variant ?? 'secondary'}
+                fullWidth
+                onClick={secondary.onClick}
+              >
                 {secondary.label}
               </Button>
             )}

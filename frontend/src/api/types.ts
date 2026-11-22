@@ -34,3 +34,16 @@ export type DebateList = {
 export type DebateDetail = DebateSummary & { hidden: boolean; utterance_count: number }
 
 export type SortKey = 'popular' | 'latest'
+
+export type Utterance = {
+  id: number
+  seq: number
+  round: number
+  side: Side
+  character: CharacterKey
+  text: string
+  caption: string
+  empathy_count: number
+}
+
+export type UtteranceList = { items: Utterance[]; status: DebateStatus; total: number }
