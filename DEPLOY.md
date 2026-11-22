@@ -2,24 +2,27 @@
 
 프론트(Vite 빌드 결과)와 백엔드(FastAPI 파이썬 함수 `api/index.py`)를 Vercel 프로젝트 하나로 올립니다. DB는 Neon Postgres를 씁니다. 설정은 `vercel.json`에 이미 있습니다(빌드, `/api/*`·`/share/*` → 함수, 그 밖 → `index.html`, 매일 한국 0시 cron).
 
-## 1. Neon DB 만들기 → 표 만들기
-1. Neon에서 프로젝트를 만들고(리전: AWS Asia Pacific (Singapore) — `vercel.json`의 함수 리전 `sin1`과 맞춤) 연결 문자열(Postgres URL)을 복사합니다.
-2. 내 컴퓨터에서 한 번 마이그레이션을 돌립니다.
+## 1. Vercel 프로젝트 만들기
+1. Vercel → Add New → Project → GitHub 저장소 Import. 프로젝트 이름은 `agora-ai`(주소가 `https://agora-ai.vercel.app`이 됨 — 다르면 아래 PUBLIC_BASE_URL도 그 주소로), Framework Preset은 "Other", 루트는 그대로.
+2. Environment Variables에 아래 값을 넣고 Deploy. 첫 배포는 DB가 아직 없어 `/api`가 500이어도 정상(다음 단계에서 연결).
+
+## 2. Neon DB 연결 (Vercel 안에서)
+Neon 계정이 Vercel과 연결돼 있으면 Neon 화면에서는 새 프로젝트를 만들 수 없고 Vercel에서 만든다.
+1. Vercel 프로젝트 → Storage → Create Database → Neon(Postgres) → 리전 **Singapore (aws-ap-southeast-1)** — `vercel.json`의 함수 리전 `sin1`과 맞춤.
+2. 프로젝트에 연결(Production 체크)하면 `DATABASE_URL` 등이 환경변수에 자동으로 들어간다.
+3. 표 만들기(한 번): Vercel 환경변수(또는 Neon 대시보드)의 `DATABASE_URL` 값을 로컬 `backend/.env.neon`에 `DATABASE_URL=...` 한 줄로 저장(커밋 안 됨) 후
    ```bash
    cd backend
-   DATABASE_URL="<Neon 연결 문자열>" uv run alembic upgrade head
+   export $(cat .env.neon) && uv run alembic upgrade head
+   uv run python -m app.jobs.seed   # (선택) 시드 토론 18개, 기본 mock 대본(Q-007)
    ```
-   PowerShell에서는 `$env:DATABASE_URL="<Neon 연결 문자열>"; uv run alembic upgrade head`
-3. (선택) 시드 토론 18개 넣기: 같은 방식으로 `uv run python -m app.jobs.seed`. 기본은 mock 대본이고, `--real`을 붙이면 실제 AI로 만듭니다(Q-007).
+4. Vercel → Deployments → 최신 배포 → Redeploy(환경변수 반영).
 
-## 2. Vercel 프로젝트 연결
-1. Vercel에서 GitHub 저장소를 Import합니다. Framework Preset은 "Other", 루트는 저장소 루트 그대로 둡니다.
-2. 환경변수를 **Production** 범위에 넣습니다.
-
+### 환경변수
 | 이름 | 값 | 필수 |
 |---|---|---|
 | `APP_ENV` | `production` | 필수 |
-| `DATABASE_URL` | Neon 연결 문자열 | 필수 |
+| `DATABASE_URL` | Neon 연결 시 자동 | 필수 |
 | `SESSION_SECRET` | 32자 이상 무작위 문자열(예: `python -c "import secrets;print(secrets.token_urlsafe(48))"`) | 필수 |
 | `CRON_SECRET` | 무작위 문자열(Vercel이 cron 호출에 자동으로 붙임) | 필수 |
 | `PUBLIC_BASE_URL` | `https://<배포 도메인>` | 필수 |
