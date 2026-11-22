@@ -3,7 +3,7 @@
 프론트(Vite 빌드 결과)와 백엔드(FastAPI 파이썬 함수 `api/index.py`)를 Vercel 프로젝트 하나로 올립니다. DB는 Neon Postgres를 씁니다. 설정은 `vercel.json`에 이미 있습니다(빌드, `/api/*`·`/share/*` → 함수, 그 밖 → `index.html`, 매일 한국 0시 cron).
 
 ## 1. Neon DB 만들기 → 표 만들기
-1. Neon에서 프로젝트를 만들고 연결 문자열(Postgres URL)을 복사합니다.
+1. Neon에서 프로젝트를 만들고(리전: AWS Asia Pacific (Singapore) — `vercel.json`의 함수 리전 `sin1`과 맞춤) 연결 문자열(Postgres URL)을 복사합니다.
 2. 내 컴퓨터에서 한 번 마이그레이션을 돌립니다.
    ```bash
    cd backend
