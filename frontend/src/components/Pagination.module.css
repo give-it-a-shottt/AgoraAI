@@ -1,0 +1,10 @@
+.pagination { display: flex; align-items: center; gap: var(--space-1); }
+.page, .current, .arrow {
+  width: 36px; height: 36px; border-radius: var(--radius-full);
+  display: inline-flex; align-items: center; justify-content: center; letter-spacing: -0.025em;
+}
+.page { font-size: 14px; font-weight: 400; line-height: 1.45; color: var(--text-sub); }
+.page:hover, .arrow:not(:disabled):hover { background: var(--bg-regular); }
+.current { background: var(--bg-inverse); color: var(--text-inverse); font-size: 14px; font-weight: 600; line-height: 1.4; }
+.arrow { color: var(--icon-main); }
+.arrow:disabled { color: var(--text-disabled); cursor: default; }

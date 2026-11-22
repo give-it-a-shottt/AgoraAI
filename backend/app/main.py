@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.config import get_settings
+from app.routers import debates
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("agora")
@@ -61,6 +62,8 @@ def create_app() -> FastAPI:
     @app.get("/api/health")
     def health() -> dict:
         return {"ok": True}
+
+    app.include_router(debates.router)
 
     return app
 

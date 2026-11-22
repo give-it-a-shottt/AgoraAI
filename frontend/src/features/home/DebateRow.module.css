@@ -1,0 +1,4 @@
+.row { border-top: 1px solid var(--line-light); }
+.link { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-6) 0; }
+.link:hover .meta + *, .link:hover > span:first-child { text-decoration: underline; text-underline-offset: 4px; }
+.meta { display: flex; align-items: center; gap: var(--space-2); color: var(--text-sub-weak); }

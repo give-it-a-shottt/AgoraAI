@@ -1,0 +1,7 @@
+.tabs { display: flex; gap: var(--space-2); }
+.tab, .selected {
+  height: 48px; padding: 0 4px; display: inline-flex; align-items: center; justify-content: center;
+  letter-spacing: -0.025em; border-bottom: 2px solid transparent;
+}
+.tab { font-size: 15px; font-weight: 500; line-height: 1.45; color: var(--text-sub-weak); }
+.selected { font-size: 16px; font-weight: 600; line-height: 1.4; color: var(--text-main); border-bottom-color: var(--primary-default); }

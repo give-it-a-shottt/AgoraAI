@@ -1,0 +1,8 @@
+.chip {
+  position: relative;
+  height: 36px; padding: 0 14px; display: inline-flex; align-items: center; justify-content: center;
+  background: var(--bg-default); border: 1px solid var(--line-regular); border-radius: var(--radius-full);
+  font-size: 14px; font-weight: 500; line-height: 1.45; letter-spacing: -0.025em; color: var(--text-main); white-space: nowrap;
+}
+.chip::after { content: ''; position: absolute; inset: -4px 0; } /* 터치 영역 44 */
+.chip:hover { background: var(--bg-regular); }
