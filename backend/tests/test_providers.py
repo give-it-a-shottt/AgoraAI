@@ -96,7 +96,8 @@ def test_provider_selection_follows_keys(monkeypatch):
         get_settings.cache_clear()
         cat = providers.debater_for("cat")  # HyperCLOVA가 1순위, 막히면 Groq Qwen
         assert isinstance(cat, real.FallbackDebater) and cat.name == "HyperCLOVA X"
-        assert isinstance(providers.debater_for("penguin"), real.GeminiDebater)
+        penguin = providers.debater_for("penguin")  # Gemini가 1순위, 붐비면 Groq gpt-oss
+        assert isinstance(penguin, real.FallbackDebater) and penguin.name == "Gemini"
         assert isinstance(providers.judge(), real.GroqJudge)
     finally:
         get_settings.cache_clear()
@@ -150,7 +151,7 @@ def test_cat_chain_order_and_label(monkeypatch):
         assert [d.name for d in chain] == ["EXAONE", "EXAONE", "Qwen"]
         assert [d._key for d in chain] == ["k1", "k2", "g"]
         assert providers.ai_label("cat", "EXAONE") == "EXAONE"
-        assert providers.ai_label("penguin", "Gemini") == "Gemini"
+        assert providers.ai_label("penguin", "Gemini") == "GPT-OSS"  # Gemini 키 없이 Groq만 있으면 대체가 1순위
         monkeypatch.delenv("EXAONE_API_KEY")
         monkeypatch.delenv("EXAONE_API_KEY_2")
         get_settings.cache_clear()

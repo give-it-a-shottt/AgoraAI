@@ -1,5 +1,6 @@
 """공급자 고르기(D-002·D-005): 키가 있으면 진짜, 없으면 mock.
-냥냥이 = HyperCLOVA X → EXAONE(키 1·2) → Groq Qwen 순서로 앞이 막히면 다음으로, 펭펭이 = Gemini, 심판 = Groq gpt-oss."""
+냥냥이 = HyperCLOVA X → EXAONE(키 1·2) → Groq Qwen, 펭펭이 = Gemini → Groq gpt-oss 순서로 앞이 막히면 다음으로.
+심판 = Groq gpt-oss."""
 
 import logging
 
@@ -51,28 +52,40 @@ def _cat_chain(s: Settings) -> list[Debater]:
     return chain
 
 
+def _penguin_chain(s: Settings) -> list[Debater]:
+    chain: list[Debater] = []
+    if s.gemini_api_key:
+        chain.append(GeminiDebater(s.gemini_api_key, s.gemini_model))
+    if s.groq_api_key and s.groq_model:
+        # Gemini가 붐빌 때(503) 대신. gpt-oss는 JSON 모드 + 짧은 생각이어야 content를 채운다(실측 2026-11-22).
+        chain.append(
+            OpenAICompatDebater(
+                "GPT-OSS", GROQ_URL, s.groq_api_key, s.groq_model,
+                max_tokens=1200, extra={"reasoning_effort": "low", "response_format": {"type": "json_object"}},
+            )
+        )
+    return chain
+
+
+def _chain_for(character: str, s: Settings) -> list[Debater]:
+    return _cat_chain(s) if character == "cat" else _penguin_chain(s)
+
+
 def debater_for(character: str) -> Debater:
     s = get_settings()
     if _force_mock:
         return MockDebater(f"mock-{character}")
-    if character == "cat":
-        chain = _cat_chain(s)
-        if not chain:
-            _warn_mock("HYPERCLOVA_API_KEY·EXAONE_API_KEY·GROQ_API_KEY")
-            return MockDebater("mock-cat")
-        return chain[0] if len(chain) == 1 else FallbackDebater(chain)
-    if s.gemini_api_key:
-        return GeminiDebater(s.gemini_api_key, s.gemini_model)
-    _warn_mock("GEMINI_API_KEY")
-    return MockDebater("mock-gemini")
+    chain = _chain_for(character, s)
+    if not chain:
+        _warn_mock("냥냥이(EXAONE_API_KEY 등)" if character == "cat" else "펭펭이(GEMINI_API_KEY 등)")
+        return MockDebater(f"mock-{character}")
+    return chain[0] if len(chain) == 1 else FallbackDebater(chain)
 
 
 def ai_label(character: str, default: str) -> str:
     """화면의 "냥냥이 · ○○"에 쓸 AI 이름 — 지금 1순위로 쓰는 공급자. 키가 없으면(mock) 기본 이름."""
-    if character == "cat":
-        chain = _cat_chain(get_settings())
-        return chain[0].name if chain else default
-    return default
+    chain = _chain_for(character, get_settings())
+    return chain[0].name if chain else default
 
 
 def judge() -> Judge:
