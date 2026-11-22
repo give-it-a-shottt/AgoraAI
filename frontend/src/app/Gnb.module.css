@@ -35,6 +35,6 @@
 @media (max-width: 639px) {
   .container { height: 56px; }
   .menu { display: none; }
-  .create { background: transparent; padding: 0 8px; }
-  .create svg { display: none; }
+  .create { background: transparent; padding: 0 4px 0 8px; gap: 6px; }
+  .login { display: none; } /* Figma MO GNB: 로고 + [+ 만들기]만. 로그인은 만들기에서 모달로 */
 }

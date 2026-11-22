@@ -93,9 +93,10 @@ export function PredictPage() {
   return (
     <div className={styles.page}>
       <header className={styles.topic}>
-        <Link to="/" className={styles.back}>
+        <Link to="/" className={`${styles.back} mo-subbar`}>
           <CaretLeft size={18} aria-hidden="true" />
-          <span className="ts-body-14-m">홈으로</span>
+          <span className="ts-body-14-m pc-only">홈으로</span>
+          <span className="mo-only">{debate.today_date ? '오늘의 토론' : '승부 예측'}</span>
         </Link>
         <div className={styles.gap8} />
         <p className={`ts-body-14-m ${styles.weak}`}>{dateLabel}</p>
@@ -149,14 +150,16 @@ export function PredictPage() {
             </Button>
           )}
         </div>
-        <Button
-          className={styles.cta}
-          softDisabled={!selected || predict.isPending || mine.isPending}
-          aria-describedby={!selected ? 'cta-hint' : undefined}
-          onClick={goWatch}
-        >
-          {predict.isPending ? '저장하는 중…' : ctaLabel}
-        </Button>
+        <div className={styles.ctaBar}>
+          <Button
+            className={styles.cta}
+            softDisabled={!selected || predict.isPending || mine.isPending}
+            aria-describedby={!selected ? 'cta-hint' : undefined}
+            onClick={goWatch}
+          >
+            {predict.isPending ? '저장하는 중…' : ctaLabel}
+          </Button>
+        </div>
         {!selected && (
           <span id="cta-hint" className="sr-only">
             A와 B 중 하나를 먼저 골라 주세요

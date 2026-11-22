@@ -151,9 +151,10 @@ export function CreatePage() {
         : '남은 횟수를 확인하는 중…'
   return (
     <div className={styles.page}>
-      <Link to="/" className={styles.back}>
+      <Link to="/" className={`${styles.back} mo-subbar`}>
         <CaretLeft size={18} aria-hidden="true" />
-        <span className="ts-body-14-m">홈으로</span>
+        <span className="ts-body-14-m pc-only">홈으로</span>
+        <span className="mo-only">토론 만들기</span>
       </Link>
       <header className={styles.head}>
         <h1 className="ts-headline-32">어떤 밸런스 게임을 붙여 볼까요?</h1>
@@ -227,9 +228,11 @@ export function CreatePage() {
             <p className={`ts-body-14-m ${styles.sub}`}>{remainText}</p>
             <p className={`ts-caption-12-r ${styles.weak}`}>주제 확인에서 거절되면 줄지 않아요</p>
           </div>
-          <Button type="submit" className={styles.submit} softDisabled={auth.loading}>
-            {auth.user || auth.loading ? '토론 시작' : '로그인하고 토론 시작'}
-          </Button>
+          <div className={styles.submitBar}>
+            <Button type="submit" className={styles.submit} softDisabled={auth.loading}>
+              {auth.user || auth.loading ? '토론 시작' : '로그인하고 토론 시작'}
+            </Button>
+          </div>
         </div>
       </form>
     </div>

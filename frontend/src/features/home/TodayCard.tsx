@@ -31,7 +31,7 @@ export function TodayCard({ debate }: { debate: DebateSummary }) {
           <Button className={styles.ctaButton} onClick={() => navigate(`/debates/${debate.id}`)}>
             승부 예측하고 보기
           </Button>
-          <p className={`ts-body-14-m ${styles.sub}`}>관객 {debate.prediction_count}명이 예측했어요</p>
+          <p className={`ts-body-14-m ${styles.sub} ${styles.audience}`}>관객 {debate.prediction_count}명이 예측했어요</p>
         </div>
       </div>
       <div className={styles.characters}>

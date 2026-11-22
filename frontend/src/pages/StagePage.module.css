@@ -35,7 +35,9 @@
 
 @media (max-width: 839px) { .page { padding-left: var(--gutter-mo); padding-right: var(--gutter-mo); } }
 @media (max-width: 639px) {
-  .page { padding-top: var(--space-4); padding-bottom: calc(132px + env(safe-area-inset-bottom)); gap: var(--space-4); }
+  .page { padding-top: 0; padding-bottom: calc(132px + env(safe-area-inset-bottom)); gap: var(--space-2); }
+  .titleRow { padding-left: calc(var(--gutter-mo) - 8px); }
+  .backTitle h1 { font-size: 16px; font-weight: 600; line-height: 1.4; }
   .stage { padding-top: var(--space-4); gap: var(--space-4); }
   .speakerImg { width: 120px; height: 120px; }
   /* Bottom Button Bar 2단 1:2 */

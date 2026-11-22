@@ -36,9 +36,14 @@
 
 @media (max-width: 839px) { .page { padding-left: var(--gutter-mo); padding-right: var(--gutter-mo); } }
 @media (max-width: 639px) {
-  .page { gap: var(--space-8); padding-top: var(--space-6); }
+  .page { gap: var(--space-6); padding-top: 0; padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
   .owl { width: 96px; height: 96px; }
   .cards { flex-direction: column; gap: var(--space-3); }
   .card { width: 100%; border-radius: var(--radius-button); }
-  .actions { max-width: none; }
+  /* Bottom Button Bar 2단 */
+  .actions {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; max-width: none;
+    padding: var(--space-3) var(--gutter-mo) calc(var(--space-3) + env(safe-area-inset-bottom));
+    background: var(--bg-default); border-top: 1px solid var(--line-light);
+  }
 }

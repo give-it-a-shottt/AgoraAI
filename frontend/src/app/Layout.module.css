@@ -1,1 +1,3 @@
 .main { flex: 1; display: flex; flex-direction: column; }
+.footerWrap, .pcOnly { display: contents; }
+@media (max-width: 639px) { .pcOnly { display: none; } }

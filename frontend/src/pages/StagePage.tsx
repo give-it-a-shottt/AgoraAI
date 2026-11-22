@@ -133,7 +133,7 @@ function Stage({ debate, list, refetch, offline }: StageProps) {
 
   const header = (
     <>
-      <div className={styles.titleRow}>
+      <div className={`${styles.titleRow} mo-subbar`}>
         <div className={styles.backTitle}>
           <Link to={`/debates/${encodeURIComponent(debate.id)}`} className={styles.back} aria-label="승부 예측으로 돌아가기">
             <CaretLeft size={24} />

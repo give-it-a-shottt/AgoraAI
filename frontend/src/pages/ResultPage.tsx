@@ -100,7 +100,7 @@ function ResultView({ debate, result }: { debate: DebateDetail; result: Result }
 
   return (
     <div className={styles.page}>
-      <Link to={stagePath} className={styles.back}>
+      <Link to={stagePath} className={`${styles.back} mo-subbar`}>
         <CaretLeft size={18} aria-hidden="true" />
         <span className="ts-body-14-m">{titleOf(debate)}</span>
       </Link>

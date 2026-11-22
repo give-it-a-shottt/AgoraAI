@@ -13,10 +13,19 @@
 @media (max-width: 1023px) {
   .character { width: 140px; height: 140px; }
 }
+/* MO(Figma 12:227): 제목 → [작은 캐릭터 2 + 출연 줄] → 관객 수 → 버튼 */
 @media (max-width: 639px) {
-  .card { flex-direction: column-reverse; align-items: stretch; padding: var(--space-6) var(--space-5); }
-  .characters { justify-content: center; }
-  .character { width: 120px; height: 120px; }
-  .cta { flex-direction: column; align-items: stretch; gap: var(--space-3); }
-  .ctaButton { width: 100%; }
+  .card {
+    display: grid; grid-template-columns: auto 1fr; column-gap: var(--space-3); row-gap: var(--space-5);
+    grid-template-areas: "head head" "chars names" "aud aud" "btn btn";
+    align-items: center; padding: var(--space-6) var(--space-5);
+  }
+  .text, .cta { display: contents; }
+  .head { grid-area: head; }
+  .head h1 { font-size: 22px; }
+  .names { grid-area: names; gap: 2px; }
+  .characters { grid-area: chars; gap: 0; }
+  .character { width: 52px; height: 52px; }
+  .audience { grid-area: aud; margin-top: calc(-1 * var(--space-1)); }
+  .ctaButton { grid-area: btn; width: 100%; }
 }

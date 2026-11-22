@@ -73,7 +73,7 @@ export function PredictionCard({ debate, result, retrying, canRetry, onRetryJudg
 export function AudienceCard({ debate, result }: { debate: DebateDetail; result: Result }) {
   const { count, a_ratio, b_ratio } = result.audience
   return (
-    <div className={styles.card}>
+    <div className={`${styles.card} ${styles.audience}`}>
       <p className={styles.title}>
         <Users size={24} aria-hidden="true" /> 관객 {count}명 참여
       </p>

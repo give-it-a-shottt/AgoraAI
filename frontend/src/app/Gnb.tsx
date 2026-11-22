@@ -44,13 +44,14 @@ export function Gnb({ nickname, onLogin, onLogout }: Props) {
               로그아웃
             </Button>
           ) : (
-            <Button variant="text" size="m" tone="sub" onClick={onLogin}>
+            <Button variant="text" size="m" tone="sub" onClick={onLogin} className={styles.login}>
               로그인
             </Button>
           )}
           <Link to="/create" className={styles.create}>
             <Plus size={20} aria-hidden="true" />
-            <span>토론 만들기</span>
+            <span className="pc-only">토론 만들기</span>
+            <span className="mo-only">만들기</span>
           </Link>
         </div>
       </div>

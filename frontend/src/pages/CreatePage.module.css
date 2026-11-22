@@ -16,6 +16,7 @@
 .similarLink { display: inline-flex; align-items: center; gap: 6px; height: 40px; width: fit-content; }
 .actions { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); margin-top: var(--space-5); }
 .remain { display: flex; flex-direction: column; gap: var(--space-1); }
+.submitBar { display: contents; }
 .submit { width: 282px; }
 .state { flex: 1; min-height: 740px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-4); padding: var(--space-10) var(--gutter-mo); text-align: center; }
 .spinner { width: 40px; height: 40px; border-radius: 50%; border: 4px solid var(--bg-regular); border-top-color: var(--primary-default); animation: spin 0.9s linear infinite; }
@@ -24,12 +25,20 @@
 
 @media (max-width: 627px) { .page { padding-left: var(--gutter-mo); padding-right: var(--gutter-mo); } }
 @media (max-width: 639px) {
-  .page { padding-top: var(--space-6); padding-bottom: calc(var(--space-20) + 56px); gap: var(--space-6); }
-  .actions { flex-direction: column; align-items: stretch; }
-  .submit {
-    position: fixed; left: var(--gutter-mo); right: var(--gutter-mo); bottom: calc(var(--space-5) + env(safe-area-inset-bottom));
-    width: auto; z-index: 20;
+  .page { padding-top: 0; padding-bottom: calc(var(--space-20) + 56px); gap: var(--space-6); }
+  .head h1 { font-size: 24px; }
+  /* 추천 칩은 한 줄 가로 스크롤 */
+  .suggest .chips { flex-wrap: nowrap; overflow-x: auto; margin: 0 calc(-1 * var(--gutter-mo)); padding: 0 var(--gutter-mo); scrollbar-width: none; }
+  .suggest .chips > * { flex-shrink: 0; }
+  .actions { flex-direction: column; align-items: stretch; margin-top: var(--space-3); }
+  .remain { flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) 6px; }
+  .remain > :last-child::before { content: "· "; }
+  .submitBar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; display: flex;
+    padding: var(--space-3) var(--gutter-mo) calc(var(--space-3) + env(safe-area-inset-bottom));
+    background: var(--bg-default); border-top: 1px solid var(--line-light);
   }
+  .submit { width: 100%; }
   .state { min-height: 60vh; }
 }
 .formError { width: 100%; display: flex; align-items: center; gap: var(--space-1); font-size: 13px; line-height: 1.45; letter-spacing: -0.025em; color: var(--status-error-text); }

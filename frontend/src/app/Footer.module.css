@@ -18,5 +18,7 @@
   .container { padding: 0 var(--gutter-mo); }
 }
 @media (max-width: 639px) {
-  .container { flex-direction: column; align-items: flex-start; justify-content: center; gap: var(--space-2); padding: var(--space-6) var(--gutter-mo); }
+  .container { flex-direction: column; align-items: flex-start; justify-content: center; gap: var(--space-2); padding: var(--space-6) var(--gutter-mo); font-size: 12px; }
+  .links { gap: 0; }
+  .links > * + *::before { content: "·"; margin: 0 6px; }
 }

@@ -15,4 +15,12 @@
 .valuePrimary, .valueMuted { height: 10px; border-radius: 5px; }
 .valuePrimary { background: var(--primary-default); }
 .valueMuted { background: var(--line-strong); }
-@media (max-width: 639px) { .card { width: 100%; border-radius: var(--radius-button); } }
+@media (max-width: 639px) {
+  .card { width: 100%; border-radius: var(--radius-button); }
+  /* MO(Figma 11:183): 관객은 카드 대신 작은 한 줄 */
+  .audience { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 4px; padding: 0; background: none; color: var(--text-sub); }
+  .audience .title { font-size: 13px; font-weight: 400; gap: 6px; }
+  .audience .title svg { width: 16px; height: 16px; }
+  .audience .sub { font-size: 13px; }
+  .audience .sub::before { content: "· "; }
+}

@@ -15,18 +15,22 @@
 .actions { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); }
 .links { display: flex; align-items: center; gap: var(--space-2); }
 .copy { padding-left: 0; }
+.ctaBar { display: contents; }
 .cta { width: 384px; }
 
 @media (max-width: 1239px) { .page { padding-left: var(--gutter-mo); padding-right: var(--gutter-mo); } }
 @media (max-width: 639px) {
-  .page { gap: var(--space-8); padding-top: var(--space-6); padding-bottom: calc(var(--space-20) + 56px); }
+  .page { gap: var(--space-8); padding-top: 0; padding-bottom: calc(var(--space-20) + 56px); }
+  .topic .gap8 { display: none; }
   .cards { gap: var(--space-2); }
   .castRow { flex-direction: column; gap: var(--space-4); }
   .actions { flex-direction: column; align-items: stretch; }
-  .links { justify-content: space-between; }
+  .links { justify-content: flex-start; }
   /* Bottom Button Bar 1단 */
-  .cta {
-    position: fixed; left: var(--gutter-mo); right: var(--gutter-mo);
-    bottom: calc(var(--space-5) + env(safe-area-inset-bottom)); width: auto; z-index: 20;
+  .ctaBar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; display: flex;
+    padding: var(--space-3) var(--gutter-mo) calc(var(--space-3) + env(safe-area-inset-bottom));
+    background: var(--bg-default); border-top: 1px solid var(--line-light);
   }
+  .cta { width: 100%; }
 }

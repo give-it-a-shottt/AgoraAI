@@ -91,3 +91,19 @@ svg {
   display: flex;
   flex-direction: column;
 }
+
+/* 반응형 문구 전환 · MO 하위 화면 GNB(Sub MO: 뒤로 + 제목) — Figma 0:1 Screens */
+.mo-only { display: none; }
+@media (max-width: 639px) {
+  .pc-only { display: none !important; }
+  .mo-only { display: inline; }
+  .mo-subbar {
+    height: 56px; width: auto !important; flex-shrink: 0;
+    margin: 0 calc(-1 * var(--gutter-mo)); padding: 0 var(--gutter-mo);
+    display: flex !important; align-items: center; gap: var(--space-3);
+    color: var(--text-main) !important;
+    font-size: 16px; font-weight: 600; line-height: 1.4; letter-spacing: -0.025em;
+  }
+  .mo-subbar > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: inherit; }
+  .mo-subbar > svg { width: 24px; height: 24px; flex-shrink: 0; }
+}
