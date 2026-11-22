@@ -6,7 +6,9 @@
 
 import logging
 import random
-from datetime import date, timedelta
+import threading
+import time
+from datetime import date, datetime, timedelta
 from typing import Literal
 
 from sqlalchemy import or_, select, update
@@ -17,7 +19,14 @@ from app import db as db_module
 from app.characters import CHARACTERS
 from app.models import TOTAL_UTTERANCES, Debate, Utterance
 from app.providers import debater_for
-from app.providers.base import Debater, Persona, ProviderError, Turn, UtteranceRequest, UtteranceResult
+from app.providers.base import (
+    Debater,
+    Persona,
+    ProviderError,
+    Turn,
+    UtteranceRequest,
+    UtteranceResult,
+)
 from app.services.moderation import OutputRejected, check_output
 from app.services.normalize import normalized_key
 from app.timeutil import utcnow
@@ -25,8 +34,16 @@ from app.timeutil import utcnow
 logger = logging.getLogger("agora.generation")
 
 MAX_FAILS = 3  # 연속 실패가 이만큼 쌓이면 멈춤(DEB_01_007)
-LOCK_TTL = timedelta(seconds=90)  # 발언 하나 만드는 데 넉넉한 시간. 작업이 죽어도 이후 풀린다
-STALL_AFTER = timedelta(seconds=20)  # 이만큼 새 발언이 없고 잠금도 없으면 "멈춘 작업"으로 보고 다시 깨운다
+# 발언 하나의 최악 소요: 공급자 호출 40초(읽기 제한) × 출력 검사 재생성 2번 + 여유. 작업이 죽어도 이 뒤엔 풀린다.
+LOCK_TTL = timedelta(seconds=180)
+STALL_AFTER = timedelta(seconds=20)  # 생성 중인데 잠금도 새 발언도 없으면 "죽은 작업"으로 보고 다시 깨운다
+FAIL_BACKOFF_SECONDS = (2.0, 4.0)  # 연속 실패 사이 대기(429 같은 일시 장애가 몇 초 만에 paused가 되지 않게)
+# 재시도 남용 방지: 로그인 없이 누구나 누를 수 있어서, 토론당 횟수와 멈춘 뒤 대기 시간을 둔다(유료·무료 한도 보호).
+MAX_RETRIES = 3
+RETRY_COOLDOWN = timedelta(seconds=60)
+# 동시에 도는 생성 작업 수 상한: API 요청과 같은 스레드풀을 쓰므로 너무 많이 잡지 않게. 넘치면 나중에 needs_kick이 다시 깨운다.
+MAX_CONCURRENT_GENERATIONS = 4
+_generation_slots = threading.BoundedSemaphore(MAX_CONCURRENT_GENERATIONS)
 
 StepOutcome = Literal["generated", "finished", "busy", "stopped", "failed"]
 
@@ -84,7 +101,8 @@ def build_request(debate: Debate, seq: int, history: list[Utterance]) -> Utteran
 
 
 def generate_checked(debater: Debater, req: UtteranceRequest) -> UtteranceResult:
-    """발언을 만들고 출력 검사. 검사에 걸리면 한 번만 다시 만든다(그래도 걸리면 OutputRejected)."""
+    """발언을 만들고 출력 검사. 검사에 걸리면 한 번만 다시 만든다(그래도 걸리면 OutputRejected).
+    공급자 오류(ProviderError)는 여기서 다시 부르지 않고 실패 1번으로 센다(실패 사이 대기는 run_until_done)."""
     try:
         return check_output(debater.generate(req))
     except OutputRejected:
@@ -92,8 +110,10 @@ def generate_checked(debater: Debater, req: UtteranceRequest) -> UtteranceResult
         return check_output(debater.generate(req))
 
 
-def _try_lock(db: Session, debate_id: str) -> bool:
+def _try_lock(db: Session, debate_id: str) -> datetime | None:
+    """잠금을 잡으면 이번 작업의 잠금 값(만료 시각)을, 못 잡으면 None."""
     now = utcnow()
+    token = now + LOCK_TTL
     result = db.execute(
         update(Debate)
         .where(
@@ -101,14 +121,15 @@ def _try_lock(db: Session, debate_id: str) -> bool:
             Debate.status == "generating",
             or_(Debate.lock_until.is_(None), Debate.lock_until < now),
         )
-        .values(lock_until=now + LOCK_TTL)
+        .values(lock_until=token)
     )
     db.commit()
-    return result.rowcount == 1
+    return token if result.rowcount == 1 else None
 
 
-def _release_lock(db: Session, debate_id: str) -> None:
-    db.execute(update(Debate).where(Debate.id == debate_id).values(lock_until=None))
+def _release_lock(db: Session, debate_id: str, token: datetime) -> None:
+    """내가 건 잠금일 때만 푼다(만료 뒤 다른 작업이 새로 건 잠금을 지우지 않게)."""
+    db.execute(update(Debate).where(Debate.id == debate_id, Debate.lock_until == token).values(lock_until=None))
     db.commit()
 
 
@@ -119,6 +140,7 @@ def _record_failure(db: Session, debate_id: str) -> None:
     debate.fail_count += 1
     if debate.fail_count >= MAX_FAILS:
         debate.status = "paused"
+        debate.paused_at = utcnow()
         logger.warning("토론 %s 생성 멈춤(실패 %s번)", debate_id, debate.fail_count)
     db.commit()
 
@@ -129,62 +151,116 @@ def _finish(db: Session, debate: Debate) -> None:
     db.commit()
 
 
+def _seq_exists(db: Session, debate_id: str, seq: int) -> bool:
+    return db.scalar(select(Utterance.id).where(Utterance.debate_id == debate_id, Utterance.seq == seq)) is not None
+
+
+def _generate_one(s: Session, debate: Debate) -> StepOutcome:
+    """이력을 읽고 다음 순번 발언 하나를 만들어 저장한다. 6개가 차면 완료."""
+    history = list(s.scalars(select(Utterance).where(Utterance.debate_id == debate.id).order_by(Utterance.seq)))
+    seq = len(history) + 1
+    if seq <= TOTAL_UTTERANCES:
+        round_, side = plan(seq)
+        result = generate_checked(debater_for(debate.character_of(side)), build_request(debate, seq, history))
+        s.add(Utterance(debate_id=debate.id, seq=seq, round=round_, side=side, text=result.text, caption=result.caption))
+        debate.fail_count = 0
+        try:
+            s.commit()
+        except IntegrityError:
+            s.rollback()
+            if not _seq_exists(s, debate.id, seq):
+                raise  # 순번 충돌이 아닌 다른 제약 위반 → 실패로 센다
+            # 같은 순번을 다른 작업이 먼저 저장했다(잠금 만료 뒤 겹친 경우) → 그 발언을 쓰면 된다.
+            return "generated"
+        if seq < TOTAL_UTTERANCES:
+            return "generated"
+    _finish(s, debate)
+    return "finished"
+
+
 def run_next_step(debate_id: str) -> StepOutcome:
     """다음 발언 하나를 만든다. 다른 작업이 잡고 있으면 busy, 생성 중이 아니면 stopped."""
     with db_module.SessionLocal() as s:
-        if not _try_lock(s, debate_id):
+        token = _try_lock(s, debate_id)
+        if token is None:
             debate = s.get(Debate, debate_id)
             return "busy" if debate is not None and debate.status == "generating" else "stopped"
         try:
-            debate = s.get(Debate, debate_id)
-            history = list(s.scalars(select(Utterance).where(Utterance.debate_id == debate_id).order_by(Utterance.seq)))
-            if len(history) >= TOTAL_UTTERANCES:
-                _finish(s, debate)
-                return "finished"
-            seq = len(history) + 1
-            round_, side = plan(seq)
-            result = generate_checked(debater_for(debate.character_of(side)), build_request(debate, seq, history))
-            s.add(Utterance(debate_id=debate_id, seq=seq, round=round_, side=side, text=result.text, caption=result.caption))
-            debate.fail_count = 0
-            s.commit()
-            if seq == TOTAL_UTTERANCES:
-                _finish(s, debate)
-                return "finished"
-            return "generated"
-        except IntegrityError:
-            # 같은 순번을 누가 먼저 저장했다(잠금이 풀린 뒤 겹친 경우) → 그 발언을 쓰면 된다.
-            s.rollback()
-            return "generated"
+            return _generate_one(s, s.get(Debate, debate_id))
         except (ProviderError, OutputRejected) as exc:
             s.rollback()
             logger.warning("토론 %s 발언 생성 실패: %s", debate_id, exc)
             _record_failure(s, debate_id)
             return "failed"
+        except Exception:
+            # 예상 못 한 오류도 실패로 센다 — 안 세면 paused가 되지 않아 재기동만 반복된다.
+            s.rollback()
+            logger.exception("토론 %s 발언 생성 중 예상 못 한 오류", debate_id)
+            _record_failure(s, debate_id)
+            return "failed"
         finally:
-            _release_lock(s, debate_id)
+            _release_lock(s, debate_id, token)
+
+
+def _still_generating(debate_id: str) -> bool:
+    with db_module.SessionLocal() as s:
+        debate = s.get(Debate, debate_id)
+        return debate is not None and debate.status == "generating"
 
 
 def run_until_done(debate_id: str) -> None:
     """백그라운드 작업: 끝나거나 멈추거나 다른 작업이 잡을 때까지 발언을 이어서 만든다."""
+    if not _generation_slots.acquire(blocking=False):
+        logger.info("동시 생성 상한 → 토론 %s는 다음 재기동 때 이어서", debate_id)
+        return
+    try:
+        _run_steps(debate_id)
+    finally:
+        _generation_slots.release()
+
+
+def _run_steps(debate_id: str) -> None:
+    fails_in_row = 0
     for _ in range(TOTAL_UTTERANCES + MAX_FAILS + 1):
         outcome = run_next_step(debate_id)
         if outcome in ("finished", "busy", "stopped"):
             return
         if outcome == "failed":
-            with db_module.SessionLocal() as s:
-                debate = s.get(Debate, debate_id)
-                if debate is None or debate.status != "generating":
-                    return
+            if not _still_generating(debate_id):
+                return
+            time.sleep(FAIL_BACKOFF_SECONDS[min(fails_in_row, len(FAIL_BACKOFF_SECONDS) - 1)])
+            fails_in_row += 1
+        else:
+            fails_in_row = 0
 
 
 class NotPaused(Exception):
     pass
 
 
+class RetryTooSoon(Exception):
+    def __init__(self, seconds_left: int):
+        self.seconds_left = seconds_left
+
+
+class RetryLimitReached(Exception):
+    pass
+
+
 def retry(db: Session, debate: Debate) -> None:
-    """멈춘 토론을 다시 생성 중으로(DEB_01_007 [다시 시도]). 이어서 만들기는 호출한 쪽이 백그라운드로 건다."""
+    """멈춘 토론을 다시 생성 중으로(DEB_01_007 [다시 시도]).
+    잠금 확인: paused 토론은 작업이 돌지 않으므로 잠금을 비우고 시작한다.
+    한도 확인: 토론당 MAX_RETRIES번, 멈춘 뒤 RETRY_COOLDOWN 대기. 서비스 전체 하루 한도는 F-007에서 붙인다(Q-002).
+    이어서 만들기는 호출한 쪽이 백그라운드로 건다."""
     if debate.status != "paused":
         raise NotPaused
+    if debate.retry_count >= MAX_RETRIES:
+        raise RetryLimitReached
+    if debate.paused_at is not None:
+        left = (debate.paused_at + RETRY_COOLDOWN) - utcnow()
+        if left.total_seconds() > 0:
+            raise RetryTooSoon(int(left.total_seconds()) + 1)
+    debate.retry_count += 1
     debate.status = "generating"
     debate.fail_count = 0
     debate.lock_until = None
@@ -192,7 +268,8 @@ def retry(db: Session, debate: Debate) -> None:
 
 
 def needs_kick(db: Session, debate: Debate) -> bool:
-    """생성 중인데 잠금도 없고 한동안 새 발언이 없으면 작업이 죽은 것 → 다시 깨운다(서버리스에서 작업이 끊길 때 대비, Q-005)."""
+    """생성 중인데 잠금도 없고 한동안 새 발언이 없으면 작업이 죽은 것 → 다시 깨운다(서버리스에서 작업이 끊길 때 대비, Q-005).
+    paused는 깨우지 않는다(사용자가 [다시 시도]를 눌러야 재개)."""
     if debate.status != "generating":
         return False
     now = utcnow()

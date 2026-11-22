@@ -52,6 +52,8 @@ class Debate(Base):
     )  # generating|paused|done
     lock_until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     fail_count: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
+    retry_count: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
+    paused_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     winner: Mapped[str | None] = mapped_column(String(1), nullable=True)  # 결과 API에서만 노출
     judge_reason: Mapped[str | None] = mapped_column(Text, nullable=True)

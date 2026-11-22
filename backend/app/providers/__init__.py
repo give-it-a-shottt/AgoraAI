@@ -9,6 +9,14 @@ from app.providers.real import GeminiDebater, GroqJudge, HyperClovaDebater
 
 logger = logging.getLogger("agora.providers")
 
+# 시드처럼 비용을 쓰면 안 되는 작업은 키가 있어도 mock을 쓰게 강제한다(Q-007).
+_force_mock = False
+
+
+def force_mock(enabled: bool) -> None:
+    global _force_mock
+    _force_mock = enabled
+
 
 def _warn_mock(what: str) -> None:
     if get_settings().is_production:
@@ -17,6 +25,8 @@ def _warn_mock(what: str) -> None:
 
 def debater_for(character: str) -> Debater:
     s = get_settings()
+    if _force_mock:
+        return MockDebater(f"mock-{character}")
     if character == "cat":
         if s.hyperclova_api_key:
             return HyperClovaDebater(s.hyperclova_api_key, s.hyperclova_model)
@@ -29,7 +39,10 @@ def debater_for(character: str) -> Debater:
 
 
 def judge() -> Judge:
+    """심판 공급자(F-005 판정·F-007 주제 검수에서 사용)."""
     s = get_settings()
+    if _force_mock:
+        return MockJudge()
     if s.groq_api_key:
         return GroqJudge(s.groq_api_key, s.groq_model)
     _warn_mock("GROQ_API_KEY")

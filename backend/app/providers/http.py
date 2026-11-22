@@ -9,11 +9,13 @@ from app.providers.base import ProviderError
 logger = logging.getLogger("agora.providers")
 
 TIMEOUT = httpx.Timeout(40.0, connect=10.0)
+# 연결(TLS)을 재사용하려고 클라이언트 하나를 같이 쓴다.
+_client = httpx.Client(timeout=TIMEOUT)
 
 
 def post_json(url: str, *, headers: dict, payload: dict, provider: str) -> dict:
     try:
-        res = httpx.post(url, headers=headers, json=payload, timeout=TIMEOUT)
+        res = _client.post(url, headers=headers, json=payload)
     except httpx.HTTPError as exc:
         raise ProviderError(f"{provider} 연결 실패: {type(exc).__name__}") from exc
     if res.status_code != 200:

@@ -15,6 +15,9 @@ _BANNED = [
     "자살", "자해", "살인", "테러", "폭탄제조", "마약",
 ]
 _BANNED_RE = re.compile("|".join(map(re.escape, _BANNED)))
+# 금지어가 들어 있지만 일상적인 표현(오탐). 검사 전에 먼저 지운다.
+_ALLOWED = ["시발점", "살인적", "한녀석", "마약김밥", "마약떡볶이", "마약옥수수", "자살골"]
+_ALLOWED_RE = re.compile("|".join(map(re.escape, _ALLOWED)))
 _SPACES = re.compile(r"\s+")
 
 
@@ -23,10 +26,12 @@ class OutputRejected(Exception):
 
 
 def contains_banned(text: str) -> bool:
-    return bool(_BANNED_RE.search(_SPACES.sub("", text)))
+    compact = _ALLOWED_RE.sub("", _SPACES.sub("", text))
+    return bool(_BANNED_RE.search(compact))
 
 
 def check_topic_local(topic_a: str, topic_b: str) -> TopicCheck:
+    """F-007 주제 검수에서 AI 검수 전에 먼저 쓴다."""
     if contains_banned(topic_a) or contains_banned(topic_b):
         return TopicCheck(allowed=False, reason="토론하기 어려운 표현이 들어 있어요.")
     if _SPACES.sub("", topic_a).lower() == _SPACES.sub("", topic_b).lower():
@@ -45,6 +50,7 @@ def _cut(text: str, limit: int) -> str:
 
 
 def check_output(result: UtteranceResult) -> UtteranceResult:
+    """빈 값·금지어면 거절(→ 한 번 재생성). 길이 초과는 거절하지 않고 자른다(재생성 비용 절약, Q-011)."""
     text = _SPACES.sub(" ", result.text).strip()
     caption = _SPACES.sub(" ", result.caption).strip().strip("\"'“”").rstrip(".")
     if not text or not caption:

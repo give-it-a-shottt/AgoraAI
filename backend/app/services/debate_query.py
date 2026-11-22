@@ -7,8 +7,15 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.characters import CHARACTERS
-from app.models import Debate, Prediction, Utterance
-from app.schemas import CastMember, DebateDetail, DebateList, DebateSummary
+from app.models import TOTAL_UTTERANCES, Debate, Empathy, Prediction, Utterance
+from app.schemas import (
+    CastMember,
+    DebateDetail,
+    DebateList,
+    DebateSummary,
+    UtteranceList,
+    UtteranceOut,
+)
 from app.timeutil import kst_today
 
 Sort = Literal["popular", "latest"]
@@ -127,3 +134,35 @@ def get_detail(db: Session, debate_id: str) -> DebateDetail | None:
     )
     summary = to_summary(debate, prediction_count(db, debate.id))
     return DebateDetail(**summary.model_dump(), hidden=False, utterance_count=utterance_count)
+
+
+def list_utterances(db: Session, debate: Debate, after: int) -> UtteranceList:
+    """무대가 읽는 발언 목록(after보다 큰 순번만). 공감 수는 발언별로 한 번에 센다."""
+    # 이 토론 발언의 공감만 센다(공감 테이블 전체를 집계하지 않게).
+    this_debate = select(Utterance.id).where(Utterance.debate_id == debate.id)
+    empathy = (
+        select(Empathy.utterance_id, func.count(Empathy.id).label("cnt"))
+        .where(Empathy.utterance_id.in_(this_debate))
+        .group_by(Empathy.utterance_id)
+        .subquery()
+    )
+    rows = db.execute(
+        select(Utterance, func.coalesce(empathy.c.cnt, 0))
+        .outerjoin(empathy, empathy.c.utterance_id == Utterance.id)
+        .where(Utterance.debate_id == debate.id, Utterance.seq > after)
+        .order_by(Utterance.seq)
+    ).all()
+    items = [
+        UtteranceOut(
+            id=u.id,
+            seq=u.seq,
+            round=u.round,
+            side=u.side,
+            character=debate.character_of(u.side),
+            text=u.text,
+            caption=u.caption,
+            empathy_count=cnt,
+        )
+        for u, cnt in rows
+    ]
+    return UtteranceList(items=items, status=debate.status, total=TOTAL_UTTERANCES)

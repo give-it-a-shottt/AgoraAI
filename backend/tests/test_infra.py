@@ -1,12 +1,12 @@
 """F-000 공통 기반 테스트: 에러 모양, DB URL 변환, 운영 설정 검증, 마이그레이션."""
 
 import pytest
-from alembic import command
 from alembic.config import Config
 from fastapi import APIRouter
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, inspect
 
+from alembic import command
 from app.config import Settings
 from app.db import normalize_url
 from app.errors import api_error

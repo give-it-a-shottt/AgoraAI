@@ -69,6 +69,8 @@ class Debater(Protocol):
 
 
 class Judge(Protocol):
+    """심판: 판정은 F-005, 주제 검수는 F-007에서 연결한다."""
+
     name: str
 
     def judge(self, topic_a: str, topic_b: str, turns: list[Turn]) -> JudgeResult: ...

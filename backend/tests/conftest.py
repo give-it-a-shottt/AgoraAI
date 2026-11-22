@@ -5,17 +5,25 @@ os.environ["DATABASE_URL"] = "sqlite://"
 for key in ("HYPERCLOVA_API_KEY", "GEMINI_API_KEY", "GROQ_API_KEY", "GOOGLE_CLIENT_ID", "KAKAO_REST_KEY"):
     os.environ[key] = ""
 
-import pytest  # noqa: E402
-from fastapi.testclient import TestClient  # noqa: E402
-from sqlalchemy import create_engine  # noqa: E402
-from sqlalchemy.orm import sessionmaker  # noqa: E402
-from sqlalchemy.pool import StaticPool  # noqa: E402
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
-from app import db as db_module  # noqa: E402
-from app.db import Base  # noqa: E402
-from app.main import create_app  # noqa: E402
+from app import db as db_module
+from app.db import Base
+from app.main import create_app
 
 BROWSER = "11111111-1111-4111-8111-111111111111"
+
+
+@pytest.fixture(autouse=True)
+def no_generation_backoff(monkeypatch):
+    """테스트에서는 실패 사이 대기를 없앤다."""
+    from app.services import generation
+
+    monkeypatch.setattr(generation, "FAIL_BACKOFF_SECONDS", (0.0, 0.0))
 
 
 @pytest.fixture

@@ -2,7 +2,7 @@
 
 import hashlib
 
-from app.providers.base import JudgeResult, Persona, TopicCheck, Turn, UtteranceRequest, UtteranceResult
+from app.providers.base import JudgeResult, TopicCheck, Turn, UtteranceRequest, UtteranceResult
 
 _OPENERS = {
     1: [
@@ -43,19 +43,16 @@ class MockDebater:
 
 
 class MockJudge:
+    """심판(F-005 판정)·주제 검수(F-007)용 가짜."""
+
     name = "mock-judge"
 
     def judge(self, topic_a: str, topic_b: str, turns: list[Turn]) -> JudgeResult:
         winner = "A" if int(hashlib.sha256(f"{topic_a}|{topic_b}".encode()).hexdigest(), 16) % 2 == 0 else "B"
+        # 2번째 발언(1R B)은 자기 주장 위주라 neutral, 그다음부터는 반박.
         stances = ["neutral" if i == 0 else "rebut" for i in range(len(turns) - 1)]
-        if stances:
-            stances[0] = "neutral"  # 1R 두 번째 발언은 자기 주장 위주
         topic = topic_a if winner == "A" else topic_b
         return JudgeResult(winner=winner, reason=f"{topic} 편이 생활 장면을 더 구체적으로 보여 줬어요.", stances=stances)
 
     def check_topic(self, topic_a: str, topic_b: str) -> TopicCheck:
         return TopicCheck(allowed=True)
-
-
-def mock_persona(name: str) -> Persona:  # 테스트 편의
-    return Persona(name=name, catchphrase="")

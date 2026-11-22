@@ -1,7 +1,8 @@
-"""시드 토론 넣기(§8: 출시 전 15~20개). 키가 있으면 실제 AI로, 없으면 mock으로 만든다(Q-007).
+"""시드 토론 넣기(§8: 출시 전 15~20개). 기본은 키가 있어도 mock으로 만든다(비용·한도 보호, Q-007).
 
-사용: uv run python -m app.jobs.seed           # 없는 주제만 추가
-      uv run python -m app.jobs.seed --reset   # 시드 토론을 지우고 다시
+사용: uv run python -m app.jobs.seed                 # 없는 주제만 mock으로 추가
+      uv run python -m app.jobs.seed --reset         # 시드 토론을 지우고 다시
+      uv run python -m app.jobs.seed --real          # 실제 AI로(키 필요, 18토론 × 6발언 + 판정 호출)
 """
 
 import argparse
@@ -11,6 +12,7 @@ from datetime import timedelta
 from sqlalchemy import delete, select
 
 from app import db as db_module
+from app import providers
 from app.models import Debate
 from app.services import generation
 from app.services.normalize import normalized_key
@@ -40,8 +42,23 @@ SEED_TOPICS: list[tuple[str, str]] = [
 logger = logging.getLogger("agora.seed")
 
 
-def seed(reset: bool = False) -> int:
-    created = 0
+def seed(reset: bool = False, real: bool = False) -> dict[str, int]:
+    """결과: {"created": 새로 만든 수, "done": 완료, "unfinished": 멈춤·생성 중으로 남은 수}"""
+    providers.force_mock(not real)
+    created_ids: list[str] = []
+    try:
+        _create_all(reset, created_ids)
+    finally:
+        providers.force_mock(False)
+    with db_module.SessionLocal() as db:
+        statuses = [db.get(Debate, i).status for i in created_ids]
+    done = statuses.count("done")
+    if done < len(statuses):
+        logger.warning("시드 %s개 중 %s개가 완료되지 않았어요(멈춤·생성 중).", len(statuses), len(statuses) - done)
+    return {"created": len(created_ids), "done": done, "unfinished": len(statuses) - done}
+
+
+def _create_all(reset: bool, created_ids: list[str]) -> None:
     with db_module.SessionLocal() as db:
         if reset:
             db.execute(delete(Debate).where(Debate.is_seed.is_(True)))
@@ -56,14 +73,15 @@ def seed(reset: bool = False) -> int:
             debate.created_at = debate.created_at - timedelta(days=index)
             db.commit()
             generation.run_until_done(debate.id)
-            created += 1
+            created_ids.append(debate.id)
             logger.info("시드 %s vs %s → %s", a, b, debate.id)
-    return created
 
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     parser = argparse.ArgumentParser()
     parser.add_argument("--reset", action="store_true")
-    count = seed(reset=parser.parse_args().reset)
-    print(f"시드 토론 {count}개 추가")
+    parser.add_argument("--real", action="store_true", help="실제 AI 공급자로 생성(비용 발생)")
+    args = parser.parse_args()
+    result = seed(reset=args.reset, real=args.real)
+    print(f"시드 토론 {result['created']}개 추가 (완료 {result['done']}, 미완료 {result['unfinished']})")

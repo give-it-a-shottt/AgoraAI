@@ -118,6 +118,7 @@ def test_failures_pause_then_retry_resumes(db, use_debater, client):
     assert db.get(Debate, debate.id).status == "paused"
     assert flaky.calls == generation.MAX_FAILS
 
+    _pause(db, db.get(Debate, debate.id))  # 재시도 대기 시간(RETRY_COOLDOWN)이 지난 상태로
     res = client.post(f"/api/debates/{debate.id}/retry")
     assert res.status_code == 200
     db.expire_all()
@@ -185,9 +186,96 @@ def test_stalled_generation_is_kicked(client, db):
 def test_seed_creates_debates_once(db, session_factory):
     from app.jobs.seed import SEED_TOPICS, seed
 
-    assert seed() == len(SEED_TOPICS)
-    assert seed() == 0  # 이미 있는 주제는 건너뜀
+    assert seed() == {"created": len(SEED_TOPICS), "done": len(SEED_TOPICS), "unfinished": 0}
+    assert seed()["created"] == 0  # 이미 있는 주제는 건너뜀
     db.expire_all()
     debates = db.query(Debate).all()
     assert 15 <= len(debates) <= 20
     assert all(d.status == "done" and d.is_seed for d in debates)
+
+
+def _pause(db, debate, *, minutes_ago=5, retries=0):
+    debate.status = "paused"
+    debate.paused_at = utcnow() - timedelta(minutes=minutes_ago)
+    debate.retry_count = retries
+    db.commit()
+
+
+def test_retry_cooldown_and_limit(client, db, use_debater):
+    use_debater(FlakyDebater())
+    d = generation.create_debate(db, "산", "바다")
+    _pause(db, d, minutes_ago=0)
+    res = client.post(f"/api/debates/{d.id}/retry")
+    assert res.status_code == 429
+    assert res.json()["detail"]["code"] == "retry_too_soon" and res.json()["detail"]["retry_after"] > 0
+    _pause(db, d, retries=generation.MAX_RETRIES)
+    res = client.post(f"/api/debates/{d.id}/retry")
+    assert res.status_code == 409 and res.json()["detail"]["code"] == "retry_limit"
+    _pause(db, d, retries=0)
+    assert client.post(f"/api/debates/{d.id}/retry").status_code == 200
+    db.expire_all()
+    assert db.get(Debate, d.id).retry_count == 1
+
+
+def test_retry_missing_and_hidden(client, db):
+    assert client.post("/api/debates/nope/retry").status_code == 404
+    h = make_debate(db, hidden=True)
+    assert client.post(f"/api/debates/{h.id}/retry").status_code == 410
+
+
+def test_after_bounds(client, db):
+    d = make_debate(db, utterances=6)
+    assert client.get(f"/api/debates/{d.id}/utterances?after=6").json()["items"] == []
+    assert client.get(f"/api/debates/{d.id}/utterances?after=7").status_code == 422
+
+
+def test_unexpected_error_counts_as_failure(db, use_debater):
+    class Broken(FlakyDebater):
+        def generate(self, req):
+            raise KeyError("버그")
+
+    use_debater(Broken())
+    d = generation.create_debate(db, "산", "바다")
+    generation.run_until_done(d.id)
+    db.expire_all()
+    debate = db.get(Debate, d.id)
+    assert debate.status == "paused" and debate.paused_at is not None
+    assert debate.lock_until is None
+
+
+def test_provider_error_is_not_regenerated_in_same_step(db, use_debater):
+    flaky = use_debater(FlakyDebater(fail_times=1))
+    d = generation.create_debate(db, "산", "바다")
+    assert generation.run_next_step(d.id) == "failed"
+    assert flaky.calls == 1
+
+
+def test_release_lock_keeps_someone_elses_lock(db):
+    d = generation.create_debate(db, "산", "바다")
+    mine = generation._try_lock(db, d.id)
+    other = utcnow() + timedelta(seconds=999)
+    d.lock_until = other  # 내 잠금이 만료된 뒤 다른 작업이 새로 잡은 상황
+    db.commit()
+    generation._release_lock(db, d.id, mine)
+    db.expire_all()
+    assert db.get(Debate, d.id).lock_until == other
+
+
+def test_concurrency_cap_skips_extra_workers(db, use_debater, monkeypatch):
+    import threading
+
+    use_debater(FlakyDebater())
+    monkeypatch.setattr(generation, "_generation_slots", threading.BoundedSemaphore(1))
+    generation._generation_slots.acquire()  # 자리를 다른 작업이 쓰고 있는 상황
+    d = generation.create_debate(db, "산", "바다")
+    generation.run_until_done(d.id)
+    assert _utterances(db, d.id) == []  # 자리가 없으면 다음 재기동 때로 미룸
+
+
+@pytest.mark.parametrize("text", ["살인적인 더위예요", "모든 일의 시발점이죠", "그 한 녀석이 문제", "마약김밥 최고"])
+def test_common_phrases_are_not_banned(text):
+    assert not moderation.contains_banned(text)
+
+
+def test_banned_words_still_caught():
+    assert moderation.contains_banned("이 병 신 같은")

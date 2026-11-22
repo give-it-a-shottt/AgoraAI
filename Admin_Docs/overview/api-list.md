@@ -11,6 +11,7 @@
 - 에러 모양: `{"detail": {"code": "문자열", "message": "사용자에게 보여 줄 한국어"}}` — 없는 주소 404 `not_found`, 메서드 405 `method_not_allowed`, 예상 못 한 오류 500 `internal`도 같은 모양 (검증 오류 422만 FastAPI 기본 모양)
 - 브라우저 번호: 예측·공감·신고 요청은 헤더 `X-Browser-Id`(UUID) 필수. 없거나 형식이 틀리면 400 `browser_id_required`
 - 로그인: 서명된 세션 쿠키 `agora_session`
+- 가려진 토론: 상세(GET /api/debates/{id})만 200 + `hidden: true`(화면이 DEB_01_008에 주제를 보여 주려고), 그 밖의 토론 안 API(발언·예측·공감·신고·재시도)는 410 `hidden`
 
 | 메서드 · 경로 | 로그인 | 요청 | 응답(성공) | 에러 |
 |---|---|---|---|---|
@@ -19,8 +20,8 @@
 | GET /api/debates?sort=popular\|latest&page=1&size=5 | - | - | `{items: DebateSummary[], page, total_pages, total}` — 오늘의 토론(맨 위 카드)은 목록·total에서 뺌. 마지막보다 큰 page는 빈 items | 422(page 1~1000, size 1~20 밖) |
 | GET /api/debates/similar?a=&b= | - | - | `{debate: DebateSummary \| null}` | - |
 | GET /api/debates/{id} | - | - | DebateDetail(가려진 토론은 hidden=true, 개수 0) | 404 `not_found`, 422(id 16자 초과) |
-| GET /api/debates/{id}/utterances?after=0 | - | - | `{items: Utterance[], status, total: 6}` — after보다 큰 순번만. 멈춘 생성이면 서버가 다시 깨움 | 404, 410 `hidden`, 422(after 0~6 밖) |
-| POST /api/debates/{id}/retry | - | - | `{status}` (generating으로 바뀌고 백그라운드로 이어서 생성) | 404, 410 `hidden`, 409 `not_paused` |
+| GET /api/debates/{id}/utterances?after=0 | - | - | `{items: Utterance[], status, total: 6}` — after보다 큰 순번만. 생성 중인데 20초 넘게 새 발언·잠금이 없으면 서버가 다시 깨움(paused는 안 깨움) | 404, 410 `hidden`, 422(after 0~6 밖, id 16자 초과) |
+| POST /api/debates/{id}/retry | - | - | `{status}` (generating으로 바뀌고 백그라운드로 이어서 생성) | 404, 410 `hidden`, 409 `not_paused`·`retry_limit`(토론당 3번), 429 `retry_too_soon`(+retry_after 초, 멈춘 뒤 60초), 503 `global_closed`(F-007에서 적용 예정) |
 | POST /api/debates/{id}/predictions | - | `{pick: "A"\|"B"}` | `{pick}` (이미 했으면 기존 값) | 400, 404 |
 | GET /api/debates/{id}/predictions/me | - | - | `{pick: "A"\|"B"\|null}` | 400, 404 |
 | POST /api/utterances/{id}/empathy | - | - | `{count, empathized: true}` | 400, 404 |
