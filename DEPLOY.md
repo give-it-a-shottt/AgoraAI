@@ -1,6 +1,6 @@
 # 배포 가이드 (Vercel + Neon)
 
-프론트(Vite 빌드 결과)와 백엔드(FastAPI 파이썬 함수 `api/index.py`)를 Vercel 프로젝트 하나로 올립니다. DB는 Neon Postgres를 씁니다. 설정은 `vercel.json`에 이미 있습니다(빌드, `/api/*`·`/share/*` → 함수, 그 밖 → `index.html`, 매일 한국 0시 cron).
+프론트(Vite 빌드 결과)와 백엔드(FastAPI 파이썬 함수 `api/index.py`)를 Vercel 프로젝트 하나로 올립니다. DB는 Neon Postgres를 씁니다. 설정은 `vercel.json`에 이미 있습니다(빌드, `/api/*`·`/share/*` → 함수, 그 밖 → `index.html`, 매일 한국 아침 7시 cron).
 
 ## 1. Vercel 프로젝트 만들기
 1. Vercel → Add New → Project → GitHub 저장소 Import. 프로젝트 이름은 `agora-ai`(주소가 `https://agora-ai.vercel.app`이 됨 — 다르면 아래 PUBLIC_BASE_URL도 그 주소로), Framework Preset은 "Other", 루트는 그대로.
@@ -49,5 +49,5 @@ Neon 계정이 Vercel과 연결돼 있으면 Neon 화면에서는 새 프로젝�
 2. 홈 → 승부 예측 → 무대 → 결과 → 공유 시트가 이어지는지
 3. 로그인 → 토론 만들기 → 승부 예측 화면으로 가는지
 4. 공유 링크를 카카오톡에 붙여 미리보기(제목·이미지)가 뜨는지
-5. Vercel → Settings → Cron Jobs에 `/api/cron/today`가 보이는지(다음 날 0시에 오늘의 토론이 바뀜). 바로 확인하려면 Cron Jobs 화면의 "Run"
+5. Vercel → Settings → Cron Jobs에 `/api/cron/today`가 보이는지(매일 한국 아침 7~8시 사이에 오늘의 토론이 바뀜). 바로 확인하려면 Cron Jobs 화면의 "Run"
 6. 동시 요청 한도(선택): 운영 DB에서 같은 계정으로 만들기를 동시에 여러 번 보내 하루 한도를 넘지 않는지(로컬 테스트는 SQLite에서만 돌았음)
