@@ -8,7 +8,8 @@ import { setViewChoice } from '../lib/viewState'
 import { mockApi } from '../test/fetchMock'
 import { debate } from '../test/fixtures'
 import { renderRoute } from '../test/render'
-import { AUTO_ADVANCE_MS, StagePage } from './StagePage'
+import { autoAdvanceMs } from '../features/stage/pacing'
+import { StagePage } from './StagePage'
 
 const detail = { ...debate(), hidden: false, utterance_count: 0 }
 
@@ -77,13 +78,13 @@ describe('StagePage (DEB_01_002)', () => {
     expect(screen.getByText('1R 주장 · 냥냥이 발언')).toHaveAttribute('aria-live', 'polite')
     expect(screen.getByRole('listitem', { current: 'step' })).toHaveTextContent('1R 주장')
 
-    await act(async () => { await vi.advanceTimersByTimeAsync(AUTO_ADVANCE_MS + 10) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(autoAdvanceMs(utt(1).text) + 10) })
     expect(await screen.findByText('자막2', {}, { timeout: 5000 })).toBeInTheDocument()
 
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     await user.click(screen.getByRole('button', { name: '자동 진행 멈춤' }))
     expect(screen.getByRole('button', { name: '자동 진행 재생' })).toHaveAttribute('aria-pressed', 'true')
-    await act(async () => { await vi.advanceTimersByTimeAsync(AUTO_ADVANCE_MS * 2) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(autoAdvanceMs(utt(2).text) * 2) })
     expect(screen.getByText('자막2')).toBeInTheDocument()
     expect(screen.queryByText('자막3')).not.toBeInTheDocument()
   })

@@ -16,6 +16,7 @@ import { useAutoAdvance, useEmpathyOnce, useWaitElapsed } from '../features/stag
 import { completedRounds, roundOf, speakerOf } from '../features/stage/order'
 import { PAUSED_TITLE, PausedBlock } from '../features/stage/PausedBlock'
 import { PastUtterances } from '../features/stage/PastUtterances'
+import { autoAdvanceMs } from '../features/stage/pacing'
 import { useRetry, useUtterances } from '../features/stage/queries'
 import { retryErrorMessage } from '../features/stage/retryMessage'
 import { ROUND_NAMES, StepperBar } from '../features/stage/StepperBar'
@@ -25,7 +26,6 @@ import { useReducedMotion } from '../lib/useReducedMotion'
 import { getViewChoice } from '../lib/viewState'
 import styles from './StagePage.module.css'
 
-export const AUTO_ADVANCE_MS = 2500 // 다시보기: 자막이 뜬 뒤 다음 발언까지
 export const SLOW_AFTER_S = 30 // §8 대기 30초 → "생각보다 오래 걸리고 있어요"
 export const STALLED_AFTER_S = 60 // §8 대기 60초 → Error Inline + [다시 시도]
 
@@ -97,7 +97,8 @@ function Stage({ debate, list, refetch, offline }: StageProps) {
   const wait = useWaitElapsed(waiting)
 
   const advance = useCallback(() => setIndex((i) => i + 1), [])
-  useAutoAdvance(autoplay && !userPaused && !hold && typed && nextAvailable, AUTO_ADVANCE_MS, advance, index)
+  // 다 읽을 시간을 준 뒤 넘어간다(글자 수에 비례, 3~12초)
+  useAutoAdvance(autoplay && !userPaused && !hold && typed && nextAvailable, autoAdvanceMs(current?.text ?? ''), advance, index)
   const onTyped = useCallback((uid: number) => setTypedId(uid), [])
 
   const resultPath = `/debates/${encodeURIComponent(debate.id)}/result`
@@ -203,14 +204,7 @@ function Stage({ debate, list, refetch, offline }: StageProps) {
       <p className="sr-only" aria-live="polite">
         {current.round}R {ROUND_NAMES[current.round - 1]} · {member.name} 발언
       </p>
-      <section
-        className={styles.stage}
-        onMouseEnter={() => setHold(true)}
-        onMouseLeave={() => setHold(false)}
-        onFocus={() => setHold(true)}
-        onBlur={() => setHold(false)}
-        aria-label="무대"
-      >
+      <section className={styles.stage} onFocus={() => setHold(true)} onBlur={() => setHold(false)} aria-label="무대">
         <div key={`speaker-${current.id}`} className={styles.speaker}>
           <Character character={current.character} size={160} alt={member.name} className={styles.speakerImg} />
           <div className={styles.name}>
@@ -223,15 +217,18 @@ function Stage({ debate, list, refetch, offline }: StageProps) {
           </div>
         </div>
 
-        <TypedText
-          key={`text-${current.id}`}
-          text={current.text}
-          utteranceId={current.id}
-          instant={reduced || revealId === current.id}
-          onDone={onTyped}
-          className={`ts-body-15-r ${styles.text}`}
-        />
-        {typed && <CaptionBox caption={current.caption} />}
+        {/* §8 접근성: 마우스를 올리면 자동 진행 멈춤 — 무대 전체가 아니라 읽는 부분(대사·자막)에서만(가만히 둔 마우스로 멈춰 있지 않게) */}
+        <div className={styles.reading} onMouseEnter={() => setHold(true)} onMouseLeave={() => setHold(false)}>
+          <TypedText
+            key={`text-${current.id}`}
+            text={current.text}
+            utteranceId={current.id}
+            instant={reduced || revealId === current.id}
+            onDone={onTyped}
+            className={`ts-body-15-r ${styles.text}`}
+          />
+          {typed && <CaptionBox caption={current.caption} />}
+        </div>
 
         <div className={styles.gap24} />
 

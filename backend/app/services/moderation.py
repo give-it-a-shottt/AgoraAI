@@ -49,6 +49,17 @@ def _cut(text: str, limit: int) -> str:
     return head[: cut_at + 2].strip() if cut_at > limit // 2 else head.rstrip() + "…"
 
 
+def _cut_caption(caption: str, limit: int) -> str:
+    """자막이 길면 글자 중간이 아니라 띄어쓰기에서 자르고 "…"로 잘렸음을 보인다(예전엔 20자에서 그냥 잘라 "확률로 "처럼 끝났다)."""
+    if len(caption) <= limit:
+        return caption
+    head = caption[: limit - 1]
+    space = head.rfind(" ")
+    if space >= limit // 2:
+        head = head[:space]
+    return head.rstrip(" ,·") + "…"
+
+
 def check_output(result: UtteranceResult) -> UtteranceResult:
     """빈 값·금지어면 거절(→ 한 번 재생성). 길이 초과는 거절하지 않고 자른다(재생성 비용 절약, Q-011)."""
     text = _SPACES.sub(" ", result.text).strip()
@@ -57,4 +68,4 @@ def check_output(result: UtteranceResult) -> UtteranceResult:
         raise OutputRejected("빈 발언")
     if contains_banned(text) or contains_banned(caption):
         raise OutputRejected("금지어")
-    return UtteranceResult(text=_cut(text, MAX_TEXT), caption=caption[:MAX_CAPTION])
+    return UtteranceResult(text=_cut(text, MAX_TEXT), caption=_cut_caption(caption, MAX_CAPTION))

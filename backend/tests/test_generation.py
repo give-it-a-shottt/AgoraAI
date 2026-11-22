@@ -318,3 +318,12 @@ def test_retry_is_atomic_under_double_click(db, session_factory):
         second.close()
     db.expire_all()
     assert db.get(Debate, d.id).retry_count == 1
+
+
+def test_long_caption_is_cut_at_a_space_with_ellipsis():
+    """자막이 길면 글자 중간이 아니라 띄어쓰기에서 자르고 "…"를 붙인다(예: "확률로 "로 끝나던 문제)."""
+    out = moderation.check_output(UtteranceResult(text="발언", caption="국물 없는 짜장은 70퍼센트 확률로 금방 물려요"))
+    assert out.caption == "국물 없는 짜장은 70퍼센트…"
+    assert len(out.caption) <= moderation.MAX_CAPTION
+    short = moderation.check_output(UtteranceResult(text="발언", caption="비 오는 날엔 짜장"))
+    assert short.caption == "비 오는 날엔 짜장"  # 짧으면 그대로

@@ -11,6 +11,11 @@
   line-height: 1.4;
   letter-spacing: -0.025em;
   text-align: center;
+  max-width: 100%;
+  /* 한국어는 기본값이면 글자 중간에서 줄이 바뀌어("필수 코/스") 잘린 것처럼 보인다 → 띄어쓰기에서만, 두 줄이면 고르게 */
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
   animation: captionIn var(--dur-base) var(--ease-out) both;
 }
 @keyframes captionIn {
