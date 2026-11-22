@@ -4,7 +4,7 @@
 - 배포 때 확인: 설계 의도·면접 답 대리 작성 칸 검토 → 아래 "(AI 대리 작성 — 사용자 위임)" 칸
 
 ## 한눈에 보기
-상태: [일부] — 리뷰 진행 중
+상태: [됨]
 무엇을: 프론트·백엔드 폴더, 디자인 토큰, 공통 GNB·푸터, 라우터, 404 화면, DB 표 구조(마이그레이션)를 만든다.
 왜: 모든 기능이 같은 뼈대 위에서 같은 규칙(토큰·에러 모양·DB)으로 만들어지게 하려고.
 
@@ -19,13 +19,14 @@
 - 프론트: frontend/src/styles/(tokens·typography·global), components/(Button, Logo, Character, StateBlock), app/(Gnb, Footer, Layout, router), pages/(NotFoundPage, LegalPage), api/client.ts, lib/browserId.ts
 - 백엔드: backend/app/(config, db, models, timeutil, characters, errors, main), alembic/versions/…_initial_schema.py, tests/(conftest, test_health)
 - 캐릭터 그림 3종은 Figma Characters 컴포넌트를 SVG로 내려받고, 내보낼 때 딸려 온 부모 프레임 배경 사각형 2개만 지웠다(캐릭터 자체는 그대로).
+- 리뷰 반영: 전역 에러 핸들러(404·405·500 공통 모양), 운영 비밀값 검증, 폰트 직접 배포, app/queryClient.ts, RouteErrorPage, 초기 마이그레이션 재생성(중복 인덱스 제거·DB 기본값)
 - 설계 의도와 다른 점: GNB 메뉴 "오늘의 토론 · 지난 토론"은 IA에 없어서 홈(/)과 홈 목록 최신 탭으로 임시 연결(Q-006). GitHub 링크 주소는 환경변수 VITE_GITHUB_URL로 받고 없으면 글자만 표시.
 
 ## 리뷰
-- review/SUMMARY.md (작성 예정)
+- [review/SUMMARY.md](review/SUMMARY.md) — 1차 [보완] → 지적 반영 완료(백엔드 10·프론트 11 테스트 통과)
 
 ## 열린 질문
-- Q-006, Q-008
+- Q-006, Q-008, Q-009
 
 ## 면접 예상 질문
 1. 디자인 토큰을 CSS 변수로 둔 이유는? Tailwind를 안 쓴 이유는?

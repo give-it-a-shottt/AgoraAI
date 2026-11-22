@@ -12,7 +12,7 @@ class Base(DeclarativeBase):
     pass
 
 
-def _normalize_url(url: str) -> str:
+def normalize_url(url: str) -> str:
     # Neon 등은 postgres:// 또는 postgresql:// 로 준다 → psycopg3 드라이버로 맞춘다.
     if url.startswith("postgres://"):
         url = "postgresql://" + url.removeprefix("postgres://")
@@ -22,13 +22,14 @@ def _normalize_url(url: str) -> str:
 
 
 def make_engine(url: str):
-    url = _normalize_url(url)
+    url = normalize_url(url)
     kwargs: dict = {"pool_pre_ping": True}
     if url.startswith("sqlite"):
         kwargs["connect_args"] = {"check_same_thread": False}
     return create_engine(url, **kwargs)
 
 
+# ⚠️ 다른 모듈은 `from app import db` 후 `db.SessionLocal()`로만 접근한다(테스트가 이 속성을 바꿔 끼운다).
 engine = make_engine(get_settings().database_url)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
 

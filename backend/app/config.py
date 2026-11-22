@@ -2,15 +2,22 @@
 
 from functools import lru_cache
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+DEV_SESSION_SECRET = "dev-only-change-me"
+MIN_SECRET_LENGTH = 32
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    # 빈 값(.env.example 복사 직후)은 "없음"으로 보고 기본값을 쓴다.
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", extra="ignore", env_ignore_empty=True
+    )
 
     app_env: str = "development"  # development | test | production
     database_url: str = "sqlite:///./agora.db"
-    session_secret: str = "dev-only-change-me"
+    session_secret: str = DEV_SESSION_SECRET
     frontend_origin: str = "http://localhost:5173"
     public_base_url: str = "http://localhost:5173"
 
@@ -35,6 +42,22 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.app_env == "production"
+
+    @model_validator(mode="after")
+    def _check_production_secrets(self) -> "Settings":
+        """운영에서 비밀값이 비었거나 개발용이면 서버를 띄우지 않는다(쿠키 위조·cron 무단 호출 방지)."""
+        if not self.is_production:
+            return self
+        problems = []
+        if self.session_secret == DEV_SESSION_SECRET or len(self.session_secret) < MIN_SECRET_LENGTH:
+            problems.append(f"SESSION_SECRET(개발용이 아닌 {MIN_SECRET_LENGTH}자 이상)")
+        if not self.cron_secret:
+            problems.append("CRON_SECRET")
+        if self.database_url.startswith("sqlite"):
+            problems.append("DATABASE_URL(Postgres)")
+        if problems:
+            raise ValueError("운영 환경 설정이 빠졌어요: " + ", ".join(problems))
+        return self
 
 
 @lru_cache

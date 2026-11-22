@@ -1,6 +1,7 @@
 import { Outlet, useMatches } from 'react-router-dom'
 import { Gnb } from './Gnb'
 import { Footer } from './Footer'
+import styles from './Layout.module.css'
 
 export type RouteHandle = { hideFooter?: boolean }
 
@@ -11,8 +12,9 @@ export function Layout() {
 
   return (
     <>
+      {/* TODO(F-007): 로그인 상태·로그인 모달 연결 전까지 임시 값 */}
       <Gnb nickname={null} onLogin={() => {}} onLogout={() => {}} />
-      <main id="main" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+      <main id="main" className={styles.main}>
         <Outlet />
       </main>
       {!hideFooter && <Footer />}

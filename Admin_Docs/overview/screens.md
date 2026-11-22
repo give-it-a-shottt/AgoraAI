@@ -8,14 +8,14 @@
 ## 개발자 상세
 | URL | 화면 파일 | 화면 ID | 비고 |
 |---|---|---|---|
-| / | pages/HomePage.tsx | HOM_01_001, HOM_01_002(빈 상태) | |
-| /today | pages/TodayRedirect.tsx | - | 오늘의 토론 승부 예측으로 이동 (Q-006) |
+| / | pages/HomePage.tsx | HOM_01_001, HOM_01_002(빈 상태) | GNB "오늘의 토론" = /, "지난 토론" = /?sort=latest#browse (Q-006) |
 | /create | pages/CreatePage.tsx | CRT_01_001~004·006·007 | 단계·상태를 한 페이지 안에서 전환, 비로그인 시 COM_01_001 |
 | /debates/:id | pages/PredictPage.tsx | DEB_01_001, DEB_01_008(가려짐) | |
 | /debates/:id/stage | pages/StagePage.tsx | DEB_01_002, DEB_01_007(멈춤) | |
 | /debates/:id/result | pages/ResultPage.tsx | DEB_01_003, DEB_01_009(판정 실패), 팝업 DEB_01_004·005·006 | |
 | /terms, /privacy | pages/LegalPage.tsx | - | 임시 안내 (Q-008) |
 | * | pages/NotFoundPage.tsx | COM_01_003 | |
+| (오류) | pages/RouteErrorPage.tsx | - | 화면을 그리다 예상 못 한 오류(라우터 errorElement) |
 | (전역) | components/LoginModal | COM_01_001 | |
 | (전역) | components/StateBlock + NetworkError | COM_01_002 | 요청 실패 시 각 화면 안에 표시 |
 | (서버) /share/:id | backend share 라우터 | - | OG HTML → /debates/:id |

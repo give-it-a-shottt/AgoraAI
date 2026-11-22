@@ -42,6 +42,8 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     }
     throw new ApiError(res.status, res.status === 422 ? 'validation' : 'error', DEFAULT_MESSAGE)
   }
+  // 성공인데 JSON이 아니면(프록시·배포 설정 오류로 index.html이 온 경우 등) 에러로 본다.
+  if (body === null) throw new ApiError(res.status, 'invalid_response', DEFAULT_MESSAGE)
   return body as T
 }
 

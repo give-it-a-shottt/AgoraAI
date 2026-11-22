@@ -13,6 +13,8 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    false,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -33,7 +35,7 @@ class User(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     provider: Mapped[str] = mapped_column(String(16))
     provider_user_id: Mapped[str] = mapped_column(String(128))
-    nickname: Mapped[str] = mapped_column(String(64), default="")
+    nickname: Mapped[str] = mapped_column(String(64), default="", server_default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
@@ -45,19 +47,23 @@ class Debate(Base):
     topic_b: Mapped[str] = mapped_column(String(30))
     normalized_key: Mapped[str] = mapped_column(String(80), index=True)
     cat_side: Mapped[str] = mapped_column(String(1))  # 냥냥이(HyperCLOVA X)가 맡은 편: "A" | "B"
-    status: Mapped[str] = mapped_column(String(16), default="generating")  # generating|paused|done
+    status: Mapped[str] = mapped_column(
+        String(16), default="generating", server_default="generating"
+    )  # generating|paused|done
     lock_until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    fail_count: Mapped[int] = mapped_column(Integer, default=0)
+    fail_count: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
 
     winner: Mapped[str | None] = mapped_column(String(1), nullable=True)  # 결과 API에서만 노출
     judge_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
-    judge_status: Mapped[str] = mapped_column(String(16), default="pending")  # pending|done|failed
+    judge_status: Mapped[str] = mapped_column(
+        String(16), default="pending", server_default="pending"
+    )  # pending|done|failed
     rebut_rate: Mapped[float | None] = mapped_column(Float, nullable=True)
     agree_rate: Mapped[float | None] = mapped_column(Float, nullable=True)
 
-    is_hidden: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_hidden: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     today_date: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
-    is_seed: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_seed: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     creator_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
 
@@ -91,7 +97,7 @@ class Prediction(Base):
     __table_args__ = (UniqueConstraint("debate_id", "browser_id", name="uq_prediction_browser"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    debate_id: Mapped[str] = mapped_column(ForeignKey("debates.id", ondelete="CASCADE"), index=True)
+    debate_id: Mapped[str] = mapped_column(ForeignKey("debates.id", ondelete="CASCADE"))
     browser_id: Mapped[str] = mapped_column(String(36))
     pick: Mapped[str] = mapped_column(String(1))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
@@ -102,9 +108,7 @@ class Empathy(Base):
     __table_args__ = (UniqueConstraint("utterance_id", "browser_id", name="uq_empathy_browser"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    utterance_id: Mapped[int] = mapped_column(
-        ForeignKey("utterances.id", ondelete="CASCADE"), index=True
-    )
+    utterance_id: Mapped[int] = mapped_column(ForeignKey("utterances.id", ondelete="CASCADE"))
     browser_id: Mapped[str] = mapped_column(String(36))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
@@ -114,7 +118,7 @@ class Report(Base):
     __table_args__ = (UniqueConstraint("debate_id", "browser_id", name="uq_report_browser"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    debate_id: Mapped[str] = mapped_column(ForeignKey("debates.id", ondelete="CASCADE"), index=True)
+    debate_id: Mapped[str] = mapped_column(ForeignKey("debates.id", ondelete="CASCADE"))
     browser_id: Mapped[str] = mapped_column(String(36))
     reason: Mapped[str] = mapped_column(String(32))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)

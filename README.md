@@ -29,6 +29,7 @@ npm run dev
 cd backend && uv run pytest
 cd frontend && npm test && npm run lint && npm run build
 ```
+⚠️ Windows에서는 드라이브 글자를 대문자로(`cd C:/project/AgoraAI/frontend`) 해서 `npm test`를 실행하세요. 소문자 `c:`면 Vitest가 실패합니다(Admin_Docs/troubleshooting/T-001).
 
 ## 환경변수 (이름만, 값은 .env에)
 `APP_ENV`, `DATABASE_URL`, `SESSION_SECRET`, `FRONTEND_ORIGIN`, `PUBLIC_BASE_URL`, `HYPERCLOVA_API_KEY`, `GEMINI_API_KEY`, `GROQ_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `KAKAO_REST_KEY`, `KAKAO_CLIENT_SECRET`, `CRON_SECRET`, `DAILY_USER_LIMIT`, `DAILY_GLOBAL_LIMIT`

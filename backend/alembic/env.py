@@ -7,7 +7,7 @@ from alembic import context
 
 from app import models  # noqa: F401  모델 등록
 from app.config import get_settings
-from app.db import Base, _normalize_url
+from app.db import Base, normalize_url
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -23,7 +23,7 @@ if config.config_file_name is not None:
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
 target_metadata = Base.metadata
-config.set_main_option("sqlalchemy.url", _normalize_url(get_settings().database_url))
+config.set_main_option("sqlalchemy.url", normalize_url(get_settings().database_url))
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:

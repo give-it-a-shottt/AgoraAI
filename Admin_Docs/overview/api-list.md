@@ -8,7 +8,7 @@
 
 ## 개발자 상세
 공통
-- 에러 모양: `{"detail": {"code": "문자열", "message": "사용자에게 보여 줄 한국어"}}` (검증 오류 422는 FastAPI 기본 모양)
+- 에러 모양: `{"detail": {"code": "문자열", "message": "사용자에게 보여 줄 한국어"}}` — 없는 주소 404 `not_found`, 메서드 405 `method_not_allowed`, 예상 못 한 오류 500 `internal`도 같은 모양 (검증 오류 422만 FastAPI 기본 모양)
 - 브라우저 번호: 예측·공감·신고 요청은 헤더 `X-Browser-Id`(UUID) 필수. 없거나 형식이 틀리면 400 `browser_id_required`
 - 로그인: 서명된 세션 쿠키 `agora_session`
 
