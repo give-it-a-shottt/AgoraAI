@@ -22,8 +22,8 @@
 | GET /api/debates/{id} | - | - | DebateDetail(가려진 토론은 hidden=true, 개수 0) | 404 `not_found`, 422(id 16자 초과) |
 | GET /api/debates/{id}/utterances?after=0 | - | - | `{items: Utterance[], status, total: 6}` — after보다 큰 순번만. 생성 중인데 20초 넘게 새 발언·잠금이 없으면 서버가 다시 깨움(paused는 안 깨움) | 404, 410 `hidden`, 422(after 0~6 밖, id 16자 초과) |
 | POST /api/debates/{id}/retry | - | - | `{status}` (generating으로 바뀌고 백그라운드로 이어서 생성) | 404, 410 `hidden`, 409 `not_paused`·`retry_limit`(토론당 3번), 429 `retry_too_soon`(+retry_after 초, 멈춘 뒤 60초), 503 `global_closed`(F-007에서 적용 예정) |
-| POST /api/debates/{id}/predictions | - | `{pick: "A"\|"B"}` | `{pick}` (이미 했으면 기존 값) | 400, 404 |
-| GET /api/debates/{id}/predictions/me | - | - | `{pick: "A"\|"B"\|null}` | 400, 404 |
+| POST /api/debates/{id}/predictions | - | `{pick: "A"\|"B"}` | `{pick}` (이미 했으면 처음 값) | 400 `browser_id_required`, 404, 410 `hidden`, 422 |
+| GET /api/debates/{id}/predictions/me | - | - | `{pick: "A"\|"B"\|null}` | 400 `browser_id_required`, 404, 410 `hidden` |
 | POST /api/utterances/{id}/empathy | - | - | `{count, empathized: true}` | 400, 404 |
 | GET /api/debates/{id}/result | - | - | Result | 404, 409 `not_finished` |
 | POST /api/debates/{id}/judge/retry | - | - | Result | 404, 409 |

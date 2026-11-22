@@ -1,0 +1,35 @@
+.card {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 136px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: var(--space-6);
+  border-radius: var(--radius-card);
+  background: var(--bg-regular);
+  border: 2px solid transparent;
+  cursor: pointer;
+}
+.card:has(input:focus-visible) {
+  box-shadow:
+    0 0 0 2px var(--primary-default),
+    0 0 0 5px var(--primary-focus-halo);
+}
+.selected { background: var(--primary-soft); border-color: var(--primary-default); }
+.locked { cursor: default; }
+.top { display: flex; align-items: center; justify-content: space-between; }
+.side { font-size: 13px; font-weight: 500; line-height: 1.45; letter-spacing: -0.025em; color: var(--text-sub); }
+.selected .side, .selected .hint { color: var(--primary-text); }
+.check {
+  width: 24px; height: 24px; border-radius: var(--radius-full);
+  background: var(--bg-default); border: 1.5px solid var(--line-strong);
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.selected .check { background: var(--primary-default); border-color: var(--primary-default); color: var(--text-inverse); }
+.spacer { flex: 1; }
+.hint { font-size: 12px; font-weight: 500; line-height: 1.45; letter-spacing: -0.025em; color: var(--text-sub); }
+
+@media (max-width: 639px) {
+  .card { height: 132px; padding: var(--space-4); border-radius: var(--radius-button); }
+}

@@ -1,0 +1,15 @@
+.cast { flex: 1 1 0; min-width: 0; display: flex; align-items: center; gap: var(--space-5); }
+.avatar {
+  width: 88px; height: 88px; flex-shrink: 0; border-radius: var(--radius-full); overflow: hidden;
+  background: var(--bg-regular); display: flex; align-items: center; justify-content: center;
+}
+.avatar img { flex-shrink: 0; }
+.info { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.nameRow { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.sub { color: var(--text-sub); }
+
+@media (max-width: 639px) {
+  .cast { gap: var(--space-3); }
+  .avatar { width: 64px; height: 64px; }
+  .avatar img { width: 72px; height: 72px; }
+}
