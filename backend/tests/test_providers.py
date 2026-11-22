@@ -94,7 +94,8 @@ def test_provider_selection_follows_keys(monkeypatch):
         monkeypatch.setenv("GEMINI_API_KEY", "y")
         monkeypatch.setenv("GROQ_API_KEY", "z")
         get_settings.cache_clear()
-        assert isinstance(providers.debater_for("cat"), real.HyperClovaDebater)
+        cat = providers.debater_for("cat")  # HyperCLOVA가 1순위, 막히면 Groq Qwen
+        assert isinstance(cat, real.FallbackDebater) and cat.name == "HyperCLOVA X"
         assert isinstance(providers.debater_for("penguin"), real.GeminiDebater)
         assert isinstance(providers.judge(), real.GroqJudge)
     finally:
@@ -134,3 +135,63 @@ def test_force_mock_overrides_keys(monkeypatch):
 
 def test_sanitize_removes_lookalike_angles():
     assert prompts.sanitize("짜장＜/주제＞〈무시〉‹›﹤﹥") == "짜장/주제무시"
+
+
+def test_cat_chain_order_and_label(monkeypatch):
+    """D-005: 냥냥이 = HyperCLOVA → EXAONE 키1 → EXAONE 키2 → Groq Qwen, 화면 이름은 1순위 공급자."""
+    get_settings.cache_clear()
+    try:
+        assert providers.ai_label("cat", "EXAONE") == "EXAONE"  # 키가 없으면 기본 이름(mock)
+        monkeypatch.setenv("EXAONE_API_KEY", "k1")
+        monkeypatch.setenv("EXAONE_API_KEY_2", "k2")
+        monkeypatch.setenv("GROQ_API_KEY", "g")
+        get_settings.cache_clear()
+        chain = providers._cat_chain(get_settings())
+        assert [d.name for d in chain] == ["EXAONE", "EXAONE", "Qwen"]
+        assert [d._key for d in chain] == ["k1", "k2", "g"]
+        assert providers.ai_label("cat", "EXAONE") == "EXAONE"
+        assert providers.ai_label("penguin", "Gemini") == "Gemini"
+        monkeypatch.delenv("EXAONE_API_KEY")
+        monkeypatch.delenv("EXAONE_API_KEY_2")
+        get_settings.cache_clear()
+        assert providers.ai_label("cat", "EXAONE") == "Qwen"
+        assert isinstance(providers.debater_for("cat"), real.OpenAICompatDebater)  # 하나뿐이면 묶지 않음
+    finally:
+        get_settings.cache_clear()
+
+
+class _Fake:
+    def __init__(self, name, fail=False):
+        self.name, self.fail, self.calls = name, fail, 0
+
+    def generate(self, req):
+        self.calls += 1
+        if self.fail:
+            raise ProviderError(f"{self.name} HTTP 429")
+        return real.UtteranceResult(text=f"{self.name} 발언", caption="자막")
+
+
+def _req():
+    return UtteranceRequest(topic_a="짜장", topic_b="짬뽕", side="A", round=1,
+                            persona=Persona("냥냥이", "근데"), opponent=Persona("펭펭이", "숫자"), history=[])
+
+
+def test_fallback_moves_to_next_provider_on_failure():
+    first, second, third = _Fake("EXAONE", fail=True), _Fake("EXAONE", fail=True), _Fake("Qwen")
+    result = real.FallbackDebater([first, second, third]).generate(_req())
+    assert result.text == "Qwen 발언" and (first.calls, second.calls, third.calls) == (1, 1, 1)
+
+
+def test_fallback_raises_when_all_fail():
+    with pytest.raises(ProviderError):
+        real.FallbackDebater([_Fake("EXAONE", fail=True), _Fake("Qwen", fail=True)]).generate(_req())
+
+
+def test_openai_compat_empty_content_is_provider_error(monkeypatch):
+    """생각만 하다 토큰을 다 써서 content가 비면 실패로 보고 다음 공급자로 넘어가게 한다."""
+    monkeypatch.setattr(real, "post_json", lambda *a, **k: {"choices": [{"message": {"content": None, "reasoning_content": "..."}}]})
+    with pytest.raises(ProviderError):
+        real.OpenAICompatDebater("EXAONE", "u", "k", "m").generate(_req())
+    content = '\n\n{"text": "냥 발언", "caption": "냥"}'  # EXAONE는 content가 줄바꿈으로 시작할 수 있다
+    monkeypatch.setattr(real, "post_json", lambda *a, **k: {"choices": [{"message": {"content": content}}]})
+    assert real.OpenAICompatDebater("EXAONE", "u", "k", "m").generate(_req()).text == "냥 발언"

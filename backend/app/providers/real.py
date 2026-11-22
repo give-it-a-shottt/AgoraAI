@@ -1,4 +1,6 @@
-"""실제 공급자: 토론자 A = HyperCLOVA X, 토론자 B = Gemini, 심판 = Groq(gpt-oss). 키는 환경변수에서만 읽는다."""
+"""실제 공급자: 냥냥이 = HyperCLOVA X / EXAONE / Groq(Qwen), 펭펭이 = Gemini, 심판 = Groq(gpt-oss). 키는 환경변수에서만 읽는다."""
+
+import logging
 
 from app.providers import prompts
 from app.providers.base import (
@@ -10,6 +12,8 @@ from app.providers.base import (
     UtteranceResult,
 )
 from app.providers.http import post_json
+
+logger = logging.getLogger("agora.providers")
 
 VALID_STANCES = {"rebut", "agree", "neutral"}
 
@@ -54,6 +58,57 @@ class HyperClovaDebater:
         except (KeyError, TypeError) as exc:
             raise ProviderError("HyperCLOVA X 응답 구조 오류") from exc
         return _utterance_from(content, self.name)
+
+
+class OpenAICompatDebater:
+    """OpenAI 호환 Chat Completions(EXAONE, Groq). 생각(reasoning)은 버리고 content만 쓴다."""
+
+    def __init__(self, name: str, url: str, api_key: str, model: str, *, max_tokens: int = 400, extra: dict | None = None):
+        self.name, self._url, self._key, self._model = name, url, api_key, model
+        self._max_tokens, self._extra = max_tokens, extra or {}
+
+    def generate(self, req: UtteranceRequest) -> UtteranceResult:
+        system, user = prompts.debater_messages(req)
+        data = post_json(
+            self._url,
+            headers={"Authorization": f"Bearer {self._key}", "Content-Type": "application/json"},
+            payload={
+                "model": self._model,
+                "messages": [
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
+                ],
+                "max_tokens": self._max_tokens,
+                "temperature": 0.8,
+                **self._extra,
+            },
+            provider=self.name,
+        )
+        try:
+            content = data["choices"][0]["message"]["content"]
+        except (KeyError, IndexError, TypeError) as exc:
+            raise ProviderError(f"{self.name} 응답 구조 오류") from exc
+        if not content:
+            raise ProviderError(f"{self.name} 빈 응답")  # 생각만 하다 토큰을 다 쓴 경우 등
+        return _utterance_from(content.strip(), self.name)
+
+
+class FallbackDebater:
+    """앞 공급자가 실패(하루 한도 429·시간 초과·형식 오류)하면 다음 공급자로 같은 발언을 만든다."""
+
+    def __init__(self, chain: list):
+        self._chain = chain
+        self.name = chain[0].name
+
+    def generate(self, req: UtteranceRequest) -> UtteranceResult:
+        last: ProviderError | None = None
+        for debater in self._chain:
+            try:
+                return debater.generate(req)
+            except ProviderError as exc:
+                logger.warning("%s 실패 → 다음 공급자로: %s", debater.name, exc)
+                last = exc
+        raise last or ProviderError("토론자 공급자 없음")
 
 
 class GeminiDebater:

@@ -6,6 +6,7 @@ from typing import Literal
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app import providers
 from app.characters import CHARACTERS
 from app.models import TOTAL_UTTERANCES, Debate, Empathy, Prediction, Utterance
 from app.schemas import (
@@ -26,7 +27,8 @@ def cast_of(debate: Debate) -> list[CastMember]:
     members = []
     for side in ("A", "B"):
         key = debate.character_of(side)
-        members.append(CastMember(character=key, side=side, **CHARACTERS[key]))
+        info = {**CHARACTERS[key], "ai": providers.ai_label(key, CHARACTERS[key]["ai"])}  # 실제 쓰는 AI 이름(D-005)
+        members.append(CastMember(character=key, side=side, **info))
     return members
 
 

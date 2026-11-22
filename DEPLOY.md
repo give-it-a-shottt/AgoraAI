@@ -28,9 +28,10 @@ Neon 계정이 Vercel과 연결돼 있으면 Neon 화면에서는 새 프로젝�
 | `PUBLIC_BASE_URL` | `https://<배포 도메인>` | 필수 |
 | `FRONTEND_ORIGIN` | `https://<배포 도메인>` | 권장(CORS 허용 주소, 같은 도메인이라 없어도 동작) |
 | `TRUST_PROXY` | `true` | 필수 |
-| `GROQ_API_KEY` | 심판·주제 확인 | 없으면 mock |
-| `HYPERCLOVA_API_KEY` | 냥냥이 | 없으면 mock |
+| `GROQ_API_KEY` | 심판·주제 확인, 냥냥이 대체(Qwen) | 없으면 mock |
+| `EXAONE_API_KEY`, `EXAONE_API_KEY_2` | 냥냥이(D-005, 키마다 하루 100회) | 없으면 Groq Qwen → mock |
 | `GEMINI_API_KEY` | 펭펭이 | 없으면 mock |
+| `HYPERCLOVA_API_KEY` | 냥냥이 1순위(선택) | 없으면 EXAONE |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | 구글 로그인 | 없으면 버튼 없음 |
 | `KAKAO_REST_KEY`, `KAKAO_CLIENT_SECRET` | 카카오 로그인 | 없으면 버튼 없음 |
 | `VITE_KAKAO_JS_KEY` | 카카오톡 공유(Q-014) | 없으면 링크 복사 |

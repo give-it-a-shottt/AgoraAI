@@ -59,7 +59,7 @@ class Debate(Base):
     topic_a: Mapped[str] = mapped_column(String(30))
     topic_b: Mapped[str] = mapped_column(String(30))
     normalized_key: Mapped[str] = mapped_column(String(80), index=True)
-    cat_side: Mapped[str] = mapped_column(String(1))  # 냥냥이(HyperCLOVA X)가 맡은 편: "A" | "B"
+    cat_side: Mapped[str] = mapped_column(String(1))  # 냥냥이가 맡은 편: "A" | "B"
     status: Mapped[str] = mapped_column(
         String(16), default="generating", server_default="generating"
     )  # generating|paused|done

@@ -23,11 +23,19 @@ class Settings(BaseSettings):
     public_base_url: str = "http://localhost:5173"
 
     hyperclova_api_key: str = ""
+    # 냥냥이: HyperCLOVA X → EXAONE(키 2개까지, 키마다 하루 한도 따로) → Groq 다른 모델 → mock (D-005)
+    exaone_api_key: str = ""
+    exaone_api_key_2: str = ""
     gemini_api_key: str = ""
     groq_api_key: str = ""
-    gemini_model: str = "gemini-2.5-flash"
+    # 2.5 계열은 새 사용자에게 닫혀서 "-latest" 별칭을 쓴다(구형 모델 종료로 다시 깨지지 않게)
+    gemini_model: str = "gemini-flash-lite-latest"
     groq_model: str = "openai/gpt-oss-120b"
+    groq_cat_model: str = "qwen/qwen3.8-27b"
     hyperclova_model: str = "HCX-005"
+    exaone_model: str = "k-exaone_v2.5"
+    # EXAONE는 늘 생각(reasoning)부터 한다. low가 가장 빠름(약 7~8초)
+    exaone_reasoning_effort: str = "low"
 
     google_client_id: str = ""
     google_client_secret: str = ""
