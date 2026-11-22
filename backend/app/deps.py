@@ -70,10 +70,16 @@ def load_visible_debate(db: Session, debate_id: str) -> Debate:
 
 def current_user(db: DB, agora_session: Annotated[str | None, Cookie()] = None) -> User | None:
     """서명된 세션 쿠키로 로그인한 사용자(없으면 None). 쿠키는 HttpOnly라 자바스크립트가 못 읽는다(D-004)."""
-    from app.services import auth
+    from app.services import (
+        auth,  # services.auth가 models·config를 읽고, deps는 라우터 공용이라 순환을 피해 여기서
+    )
 
-    uid = auth.read_session(get_settings(), agora_session)
-    return db.get(User, uid) if uid else None
+    session = auth.read_session(get_settings(), agora_session)
+    if session is None:
+        return None
+    uid, version = session
+    user = db.get(User, uid)
+    return user if user is not None and user.session_version == version else None
 
 
 CurrentUser = Annotated[User | None, Depends(current_user)]

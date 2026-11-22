@@ -3,7 +3,8 @@
 ## 내가 할 일
 - 배포 때 확인: 설계 의도·면접 답 대리 작성 칸 검토 → 아래 "(AI 대리 작성 — 사용자 위임)" 칸
 - 배포 때 등록: 구글·카카오 로그인 키(환경변수 GOOGLE_CLIENT_ID·GOOGLE_CLIENT_SECRET·KAKAO_REST_KEY·KAKAO_CLIENT_SECRET)와 각 콘솔의 리디렉션 주소
-- 배포 때 결정: 하루 한도(Q-001·Q-002), 같은 주제 중복 허용(Q-003), 추천 칩 문구(Q-015), 로그인 유지 기간(Q-016)
+- 배포 때 결정: 하루 한도(Q-001·Q-002), 같은 주제 중복 허용(Q-003), 추천 칩 문구(Q-015), 로그인 유지 기간(Q-016), AI 확인 횟수(Q-017), 로그인 모달 시점(Q-018), 가려진 토론 처리(Q-019)
+- 배포 때 실행: DB 마이그레이션 `alembic upgrade head`(daily_usage 표·users.session_version 추가)
 
 ## 한눈에 보기
 상태: [일부] (리뷰 전)
@@ -21,10 +22,11 @@
 - 백엔드
   - services/auth.py: 구글·카카오 OAuth(state 쿠키로 위조 요청 막기, 로그인 뒤 돌아갈 주소는 같은 사이트 경로만 — safe_next), 서명된 세션 쿠키(HttpOnly·SameSite=Lax·운영에서 Secure, 30일), upsert_user
   - routers/auth.py: providers, me, {provider}/login, {provider}/callback(실패하면 "/?login=failed"), dev-login(운영에서는 404), logout
-  - services/creation.py: 주제 다듬기(2~30자, 꺾쇠 기호 금지) → 로컬 금지어 → 내 하루 횟수(한국 날짜, 내가 만든 토론 수) → 전체 하루 마감(사용자가 만든 토론 수, 시드 제외) → 심판 AI 주제 확인 → 토론 생성. 거절·실패는 토론을 만들지 않으므로 횟수가 줄지 않는다
+  - services/creation.py: 주제 다듬기(2~30자, 꺾쇠 기호 금지) → 로컬 금지어 → 내 하루 자리 잡기 → 전체 하루 자리 잡기 → AI 확인 횟수(사람당·전체) → 심판 AI 주제 확인 → 토론 생성. 거절·실패면 만들기 자리를 돌려줘 횟수가 줄지 않는다(AI 확인 횟수는 그대로 씀)
+  - services/usage.py + daily_usage 표: `UPDATE … SET used = used + 1 WHERE used < limit` 한 문장으로 자리를 잡는다. 몇 초짜리 AI 확인 중에 같은 사람이 또 보내도 한도를 넘지 않는다
   - routers/create.py: GET /api/debates/similar, GET /api/me/quota, POST /api/debates(201, 생성은 백그라운드로 이어짐)
   - deps.py: current_user / require_user(LoggedInUser)
-  - tests/test_create.py
+  - tests/test_create.py, alembic 1910c9316db2(daily_usage, users.session_version)
 - 프론트
   - features/auth/(auth.tsx AuthProvider, authContext.ts useAuth·meKey, LoginModal.tsx): 앱 전체 로그인 상태, 로그인 모달. Layout이 AuthProvider로 감싸고 GNB 로그인/로그아웃을 연결. 로그아웃하면 남은 횟수 캐시도 지움
   - pages/CreatePage.tsx: CRT_01_001~004·006·007을 한 페이지에서 상태로 전환. 주소의 ?a=&b=(홈 추천 칩)로 미리 채움
@@ -35,15 +37,17 @@
   - 디자인 추천 칩 "산 vs 바다"의 "산"은 1글자라 "각 2~30자" 규칙에 걸린다. 규칙은 그대로 두고 칩을 "등산 vs 바다"로 바꿨다(Q-015). 시드 토론의 "산 vs 바다"는 직접 넣는 데이터라 그대로다.
   - 로그인 키가 없는 로컬에서는 "개발용 로그인"이 보인다(운영에서는 API가 404).
   - 멈춘 토론 재시도(F-002)는 전체 마감에 막지 않는다. 재시도는 토론당 3번·60초 대기로 따로 막혀 있다(Q-002 임시 처리와 같음).
+  - 설계에 없던 "AI 확인 횟수" 한도를 더했다(리뷰 R2 — 거절을 반복해 무료 한도를 쓰는 것 방지, Q-017).
+- 리뷰 반영(1차): 동시 요청 한도 초과 → 자리 먼저 잡기, AI 확인 횟수 제한(429 check_limit), 다시 되는 시각을 UTC로 읽기(9시간 어긋남), 로그아웃 시 세션 버전으로 모든 쿠키 무효, Vercel 위에서는 항상 운영(개발용 로그인 닫힘), 서버 입력 오류(topic_invalid) 문구 표시·스키마 길이 검사를 clean_topic으로 통일, ?login=failed 토스트, 남은 횟수 오류 문구, 로그인 확인 전 [시작] 막기, 비슷한 토론 300ms 디바운스, 에러 → 화면 상태 변환을 features/create/outcome.ts로, 테스트 backend 6·frontend 6 추가
 
 ## 리뷰
 - 아직 안 함
 
 ## 열린 질문
-- Q-001, Q-002, Q-003, Q-015, Q-016
+- Q-001, Q-002, Q-003, Q-015, Q-016, Q-017, Q-018, Q-019
 
 ## 면접 예상 질문
 1. 소셜 로그인 콜백에서 위조 요청(CSRF)과 열린 리디렉션은 어떻게 막았나?
 2. 하루 생성 횟수는 어디에 저장하고, 거절·실패는 왜 횟수가 줄지 않나?
 3. 같은 주제를 순서만 바꿔 넣으면 어떻게 "비슷한 토론"으로 알아보나?
-- 답: (AI 대리 작성 — 사용자 위임) 1) 로그인을 시작할 때 무작위 state를 서명된 쿠키에 넣고, 콜백의 state와 같을 때만 받는다(10분 제한). 돌아갈 주소는 "/"로 시작하는 같은 사이트 경로만 허용하고 "//"나 역슬래시는 홈으로 바꾼다. 2) 따로 카운터 테이블을 두지 않고 "오늘(한국 날짜) 내가 만든 토론 수"를 센다. 토론은 검사를 다 통과해야 만들어지니 거절·실패는 자연스럽게 세지 않는다. 3) 두 주제에서 공백을 지우고 소문자로 바꾼 뒤 정렬해 normalized_key를 만들고, 그 키로 기존 토론을 찾는다.
+- 답: (AI 대리 작성 — 사용자 위임) 1) 로그인을 시작할 때 무작위 state를 서명된 쿠키에 넣고, 콜백의 state와 같을 때만 받는다(10분 제한). 돌아갈 주소는 "/"로 시작하는 같은 사이트 경로만 허용하고 "//"나 역슬래시는 홈으로 바꾼다. 2) daily_usage 표에 (사람, 한국 날짜)별 칸을 두고, 검사 전에 `used < 한도`일 때만 1 올리는 UPDATE 한 문장으로 자리를 잡는다. 처음엔 만든 토론 수를 COUNT했는데, AI 확인이 몇 초 걸리는 사이 동시 요청이 같은 "남음"을 봐서 한도를 넘을 수 있다는 리뷰를 받고 바꿨다. 거절·실패면 자리를 돌려줘서 횟수가 줄지 않는다. 3) 두 주제에서 공백을 지우고 소문자로 바꾼 뒤 정렬해 normalized_key를 만들고, 그 키로 기존 토론을 찾는다.

@@ -40,6 +40,10 @@ def create(body: CreateDebateIn, db: DB, user: LoggedInUser, background: Backgro
         raise api_error(422, "topic_rejected", exc.reason, suggestions=suggestions) from None
     except creation.UserLimitReached as exc:
         raise api_error(429, "user_limit", "오늘 만들 수 있는 토론을 다 썼어요.", reset_at=exc.reset_at.isoformat()) from None
+    except creation.CheckLimitReached as exc:
+        raise api_error(
+            429, "check_limit", "오늘은 주제 확인을 많이 했어요. 내일 다시 만들어 주세요.", reset_at=exc.reset_at.isoformat()
+        ) from None
     except creation.GlobalClosed:
         raise api_error(503, "global_closed", "오늘은 토론 생성이 마감됐어요. 내일 다시 만들어 주세요.") from None
     except creation.CheckFailed:

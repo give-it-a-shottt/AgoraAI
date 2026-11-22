@@ -122,8 +122,9 @@ class TopicSuggestionList(BaseModel):
 
 
 class CreateDebateIn(BaseModel):
-    topic_a: str = Field(min_length=2, max_length=30)
-    topic_b: str = Field(min_length=2, max_length=30)
+    # 길이·기호 규칙은 services/creation.clean_topic이 topic_invalid로 답한다(계약 모양 통일). 여기선 너무 큰 본문만 막는다.
+    topic_a: str = Field(max_length=200)
+    topic_b: str = Field(max_length=200)
 
 
 class CreateDebateOut(BaseModel):

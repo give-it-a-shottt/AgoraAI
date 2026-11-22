@@ -37,7 +37,19 @@ class User(Base):
     provider: Mapped[str] = mapped_column(String(16))
     provider_user_id: Mapped[str] = mapped_column(String(128))
     nickname: Mapped[str] = mapped_column(String(64), default="", server_default="")
+    # 세션 쿠키에 같이 서명해 둔다. 로그아웃하면 올려서 이미 나간 쿠키를 모두 무효로 만든다(F-007 R2).
+    session_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class DailyUsage(Base):
+    """하루 사용량 칸(한국 날짜). 만들기 횟수·AI 주제 확인 횟수를 '먼저 자리 잡기'로 센다(F-007 R2 동시 요청)."""
+
+    __tablename__ = "daily_usage"
+
+    scope: Mapped[str] = mapped_column(String(48), primary_key=True)  # 예: create:user:7, create:global
+    day: Mapped[date] = mapped_column(Date, primary_key=True)
+    used: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
 
 class Debate(Base):

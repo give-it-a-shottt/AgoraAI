@@ -60,8 +60,13 @@ def configured(settings: Settings) -> dict[str, bool]:
     return {
         "google": bool(settings.google_client_id and settings.google_client_secret),
         "kakao": bool(settings.kakao_rest_key),
-        "dev": not settings.is_production,
+        "dev": dev_login_enabled(settings),
     }
+
+
+def dev_login_enabled(settings: Settings) -> bool:
+    """개발용 로그인은 운영이 아닐 때만(Vercel 위에서는 APP_ENV와 상관없이 운영 — config.is_production)."""
+    return not settings.is_production
 
 
 def safe_next(path: str | None) -> str:
@@ -72,19 +77,28 @@ def safe_next(path: str | None) -> str:
 
 
 # ---------- 세션 ----------
-def make_session(settings: Settings, user_id: int) -> str:
-    return _serializer(settings, "session").dumps({"uid": user_id})
+def make_session(settings: Settings, user: User) -> str:
+    return _serializer(settings, "session").dumps({"uid": user.id, "v": user.session_version})
 
 
-def read_session(settings: Settings, token: str | None) -> int | None:
+def read_session(settings: Settings, token: str | None) -> tuple[int, int] | None:
+    """(사용자 id, 세션 버전). 버전이 DB 값과 다르면(로그아웃함) 쓰지 않는다 — 비교는 deps.current_user."""
     if not token:
         return None
     try:
         data = _serializer(settings, "session").loads(token, max_age=SESSION_MAX_AGE)
     except BadSignature:
         return None
-    uid = data.get("uid") if isinstance(data, dict) else None
-    return uid if isinstance(uid, int) else None
+    if not isinstance(data, dict):
+        return None
+    uid, version = data.get("uid"), data.get("v", 0)
+    return (uid, version) if isinstance(uid, int) and isinstance(version, int) else None
+
+
+def end_sessions(db: Session, user: User) -> None:
+    """이 사용자에게 나간 세션 쿠키를 모두 무효로(로그아웃 — 모든 기기에서)."""
+    user.session_version += 1
+    db.commit()
 
 
 # ---------- OAuth ----------
@@ -166,4 +180,6 @@ def upsert_user(db: Session, provider: str, provider_user_id: str, nickname: str
         except IntegrityError:  # 동시에 처음 로그인
             db.rollback()
             user = db.scalar(select(User).where(User.provider == provider, User.provider_user_id == provider_user_id))
+            if user is None:
+                raise AuthError("upsert") from None
     return user

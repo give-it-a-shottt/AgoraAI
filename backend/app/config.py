@@ -1,5 +1,6 @@
 """환경변수 설정. 값은 .env 또는 실제 환경변수에서 읽는다(비밀값을 코드에 두지 않는다)."""
 
+import os
 from functools import lru_cache
 
 from pydantic import model_validator
@@ -40,10 +41,14 @@ class Settings(BaseSettings):
     # Q-001 · Q-002 임시값 (사용자 결정 전)
     daily_user_limit: int = 3
     daily_global_limit: int = 20
+    # Q-017 임시값: AI 주제 확인 하루 횟수(거절돼도 셈). 무료 API 한도 보호.
+    daily_user_checks: int = 10
+    daily_global_checks: int = 100
 
     @property
     def is_production(self) -> bool:
-        return self.app_env == "production"
+        # Vercel 위에서는 APP_ENV를 빠뜨려도 운영으로 본다(개발용 로그인이 열리거나 비밀값 검사가 빠지지 않게, F-007 R2).
+        return self.app_env == "production" or bool(os.environ.get("VERCEL"))
 
     @model_validator(mode="after")
     def _check_production_secrets(self) -> "Settings":

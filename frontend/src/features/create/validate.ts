@@ -1,6 +1,7 @@
 export const TOPIC_MIN = 2
 export const TOPIC_MAX = 30
-const NO_ANGLES = /[<>＜＞〈〉《》‹›﹤﹥⟨⟩]/ // 서버 services/creation.py clean_topic과 같은 규칙
+// 입력 규칙은 서버 services/creation.py(TOPIC_MIN·TOPIC_MAX·_FORBIDDEN_CHARS)와 같다. 바꿀 때 양쪽을 같이 고친다.
+const NO_ANGLES = /[<>＜＞〈〉《》‹›﹤﹥⟨⟩]/
 
 /** 선택지 한 칸 검사. 문제가 없으면 null, 있으면 보여 줄 문구. */
 export function validateTopic(value: string): string | null {

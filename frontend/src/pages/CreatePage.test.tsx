@@ -21,12 +21,12 @@ afterEach(() => vi.unstubAllGlobals())
 
 const USER = { user: { id: 1, nickname: '토론러' } }
 
-function setup(opts: { loggedIn?: boolean; create?: () => Reply; similar?: Reply; path?: string } = {}) {
+function setup(opts: { loggedIn?: boolean; create?: () => Reply; similar?: Reply; quota?: Reply; path?: string } = {}) {
   const fetchFn = mockApi((url, init) => {
     if (url.pathname === '/api/auth/me') return { body: opts.loggedIn ? USER : { user: null } }
     if (url.pathname === '/api/auth/providers') return { body: { google: false, kakao: false, dev: true } }
     if (url.pathname === '/api/auth/dev-login') return { body: USER }
-    if (url.pathname === '/api/me/quota') return { body: { remaining: mockQuotaRemaining, limit: 3, reset_at: '2026-11-22T15:00:00Z' } }
+    if (url.pathname === '/api/me/quota') return opts.quota ?? { body: { remaining: mockQuotaRemaining, limit: 3, reset_at: '2026-11-22T15:00:00' } }
     if (url.pathname === '/api/debates/similar') return opts.similar ?? { body: { debate: null } }
     if (url.pathname === '/api/debates' && init.method === 'POST') return opts.create?.() ?? { status: 201, body: { id: 'new1' } }
   })
@@ -40,6 +40,7 @@ function setup(opts: { loggedIn?: boolean; create?: () => Reply; similar?: Reply
   const view = renderRoute(
     [
       { path: '/create', element: page },
+      { path: '/login-check', element: <ToastProvider><AuthProvider><div>홈 화면</div></AuthProvider></ToastProvider> },
       { path: '/debates/:id', element: <div>예측 화면</div> },
       { path: '/', element: <div>홈 화면</div> },
     ],
@@ -152,7 +153,7 @@ describe('CreatePage', () => {
   it('내 하루 한도를 다 쓰면 다시 만들 수 있는 시각을 알려 준다', async () => {
     setup({
       loggedIn: true,
-      create: () => ({ status: 429, body: { detail: { code: 'user_limit', message: '한도', reset_at: '2026-11-22T15:00:00Z' } } }),
+      create: () => ({ status: 429, body: { detail: { code: 'user_limit', message: '한도', reset_at: '2026-11-22T15:00:00' } } }),
     })
     await fill('등산', '바다')
     await userEvent.click(await screen.findByRole('button', { name: '토론 시작' }))
@@ -188,5 +189,51 @@ describe('CreatePage', () => {
     await userEvent.click(screen.getByRole('button', { name: '다시 시도' }))
     expect(await screen.findByText('예측 화면')).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/debates/new1')
+  })
+
+  it('서버가 입력 규칙으로 거절하면(topic_invalid) 입력 화면에 이유를 보인다', async () => {
+    setup({ loggedIn: true, create: () => ({ status: 422, body: { detail: { code: 'topic_invalid', message: '선택지는 2~30자로 써 주세요.' } } }) })
+    await fill('등산', '바다')
+    await userEvent.click(await screen.findByRole('button', { name: '토론 시작' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('선택지는 2~30자로 써 주세요.')
+    expect(screen.getByLabelText('A 선택지')).toHaveValue('등산')
+  })
+
+  it('인터넷이 끊겨 요청이 실패하면 확인 실패 안내(차감 없음)', async () => {
+    setup({
+      loggedIn: true,
+      create: () => {
+        throw new TypeError('Failed to fetch')
+      },
+    })
+    await fill('등산', '바다')
+    await userEvent.click(await screen.findByRole('button', { name: '토론 시작' }))
+    expect(await screen.findByRole('heading', { name: '주제를 확인하지 못했어요' })).toBeInTheDocument()
+  })
+
+  it('만드는 중 세션이 끝났으면(401) 로그인 모달을 연다', async () => {
+    setup({ loggedIn: true, create: () => ({ status: 401, body: { detail: { code: 'login_required', message: '로그인' } } }) })
+    await fill('등산', '바다')
+    await userEvent.click(await screen.findByRole('button', { name: '토론 시작' }))
+    expect(await screen.findByRole('dialog', { name: '로그인하고 토론 만들기' })).toBeInTheDocument()
+  })
+
+  it('AI 주제 확인을 하루에 너무 많이 하면 다시 되는 시각을 알려 준다', async () => {
+    setup({ loggedIn: true, create: () => ({ status: 429, body: { detail: { code: 'check_limit', message: '많이', reset_at: '2026-11-22T15:00:00' } } }) })
+    await fill('등산', '바다')
+    await userEvent.click(await screen.findByRole('button', { name: '토론 시작' }))
+    expect(await screen.findByRole('heading', { name: '오늘은 주제 확인을 많이 했어요' })).toBeInTheDocument()
+    expect(screen.getByText(/11월 23일 오전 12시부터/)).toBeInTheDocument()
+  })
+
+  it('남은 횟수를 못 불러오면 그렇게 알린다', async () => {
+    setup({ loggedIn: true, quota: { status: 500, body: { detail: { code: 'internal', message: 'x' } } } })
+    expect(await screen.findByText('남은 횟수를 불러오지 못했어요')).toBeInTheDocument()
+  })
+
+  it('소셜 로그인이 실패해 돌아오면(?login=failed) 알리고 주소에서 지운다', async () => {
+    const { router } = setup({ path: '/login-check?login=failed' })
+    expect(await screen.findByText('로그인하지 못했어요. 다시 시도해 주세요.')).toBeInTheDocument()
+    await waitFor(() => expect(router.state.location.search).toBe(''))
   })
 })

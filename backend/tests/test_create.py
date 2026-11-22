@@ -6,7 +6,7 @@ import pytest
 from app.config import get_settings
 from app.models import Debate
 from app.providers.base import ProviderError, TopicCheck
-from app.services import auth, creation
+from app.services import auth, creation, usage
 from tests.factories import make_debate
 
 
@@ -127,7 +127,8 @@ def test_create_success_runs_generation(client, login, use_judge, db):
 def test_create_validates_input(client, login, use_judge, a, b, code):
     use_judge(FakeJudge())
     login()
-    assert client.post("/api/debates", json={"topic_a": a, "topic_b": b}).status_code == code
+    res = client.post("/api/debates", json={"topic_a": a, "topic_b": b})
+    assert res.status_code == code and res.json()["detail"]["code"] == "topic_invalid"  # 계약 모양(배열 아님)
 
 
 def test_create_rejects_forbidden_angle_brackets(client, login, use_judge):
@@ -181,3 +182,82 @@ def test_similar_matches_swapped_and_spacing(client, db):
     assert client.get("/api/debates/similar", params={"a": "찍먹", "b": "탕수육부먹"}).json()["debate"]["id"] == d.id
     assert client.get("/api/debates/similar", params={"a": "산", "b": "바다"}).json() == {"debate": None}
     assert "winner" not in str(client.get("/api/debates/similar", params={"a": "찍먹", "b": "탕수육 부먹"}).json())
+
+
+# ---------- 1차 리뷰 반영: 자리 먼저 잡기 · AI 확인 횟수 · 세션 무효화 ----------
+def test_reserve_never_exceeds_limit(db):
+    """한도 확인과 차감이 한 문장(UPDATE … WHERE used < limit)이라 마지막 자리를 둘이 함께 잡지 못한다."""
+    first = usage.reserve(db, "create:user:1", 1)
+    assert first is not None
+    assert usage.reserve(db, "create:user:1", 1) is None
+    usage.release(db, first)
+    assert usage.used(db, "create:user:1") == 0
+    assert usage.reserve(db, "create:user:1", 1) is not None
+
+
+def test_failed_and_rejected_checks_release_slots_but_count_checks(client, login, use_judge, monkeypatch):
+    login()
+    monkeypatch.setattr(get_settings(), "daily_user_checks", 2)
+    for judge in (FakeJudge(fail=True), FakeJudge(allowed=False, reason="안 돼요")):
+        use_judge(judge)
+        assert client.post("/api/debates", json={"topic_a": "산책", "topic_b": "바다"}).status_code in (422, 502)
+    assert client.get("/api/me/quota").json()["remaining"] == get_settings().daily_user_limit  # 만들기 횟수는 그대로
+    use_judge(FakeJudge())
+    res = client.post("/api/debates", json={"topic_a": "산책", "topic_b": "바다"})
+    assert res.status_code == 429 and res.json()["detail"]["code"] == "check_limit" and res.json()["detail"]["reset_at"]
+    assert client.get("/api/me/quota").json()["remaining"] == get_settings().daily_user_limit
+
+
+def test_global_check_cap_closes_creation(client, login, use_judge, monkeypatch):
+    login()
+    use_judge(FakeJudge())
+    monkeypatch.setattr(get_settings(), "daily_global_checks", 0)
+    res = client.post("/api/debates", json={"topic_a": "산책", "topic_b": "바다"})
+    assert res.status_code == 503 and res.json()["detail"]["code"] == "global_closed"
+    assert client.get("/api/me/quota").json()["remaining"] == get_settings().daily_user_limit
+
+
+def test_logout_invalidates_copied_cookie(client, login):
+    login()
+    copied = client.cookies.get(auth.SESSION_COOKIE)
+    client.post("/api/auth/logout")
+    client.cookies.set(auth.SESSION_COOKIE, copied)  # 로그아웃 전에 복사해 둔 쿠키
+    assert client.get("/api/auth/me").json() == {"user": None}
+    client.cookies.clear()
+    login()  # 다시 로그인하면 새 쿠키로 된다
+    assert client.get("/api/auth/me").json()["user"] is not None
+
+
+def test_dev_login_disabled_on_vercel_even_without_app_env(client, monkeypatch):
+    from app.config import Settings
+
+    monkeypatch.setenv("VERCEL", "1")
+    with pytest.raises(ValueError):  # 운영으로 보므로 비밀값 검사도 켜진다
+        Settings(app_env="development")
+    prod = Settings(app_env="development", database_url="postgresql://x/y", session_secret="s" * 40, cron_secret="c", public_base_url="https://a.b")
+    assert prod.is_production
+    monkeypatch.setattr("app.routers.auth.get_settings", lambda: prod)
+    assert client.post("/api/auth/dev-login").status_code == 404
+
+
+def _kakao_state(client):
+    start = client.get("/api/auth/kakao/login?next=/create", follow_redirects=False)
+    return httpx.URL(start.headers["location"]).params["state"]
+
+
+def test_callback_without_code_or_failing_provider_goes_to_login_failed(client, monkeypatch):
+    monkeypatch.setenv("KAKAO_REST_KEY", "rest")
+    get_settings.cache_clear()
+    try:
+        no_code = client.get(f"/api/auth/kakao/callback?state={_kakao_state(client)}", follow_redirects=False)
+        assert no_code.headers["location"] == "/?login=failed"
+
+        def broken_post(url, data=None, timeout=None):
+            raise httpx.ConnectError("down")
+
+        monkeypatch.setattr(httpx, "post", broken_post)
+        failed = client.get(f"/api/auth/kakao/callback?code=c&state={_kakao_state(client)}", follow_redirects=False)
+        assert failed.headers["location"] == "/?login=failed"
+        assert client.get("/api/auth/me").json() == {"user": None}
+    finally:
+        get_settings.cache_clear()

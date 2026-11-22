@@ -4,6 +4,8 @@ export type Me = { user: { id: number; nickname: string } | null }
 export type Providers = { google: boolean; kakao: boolean; dev: boolean }
 
 export const meKey = ['auth', 'me'] as const
+/** 내 남은 만들기 횟수 — 로그인한 사람에 딸린 값이라 로그아웃하면 지운다 */
+export const quotaKey = ['auth', 'quota'] as const
 
 export type AuthApi = {
   user: { id: number; nickname: string } | null

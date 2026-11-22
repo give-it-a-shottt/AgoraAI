@@ -12,7 +12,7 @@ from app.db import normalize_url
 from app.errors import api_error
 from app.main import create_app
 
-EXPECTED_TABLES = {"users", "debates", "utterances", "predictions", "empathies", "reports"}
+EXPECTED_TABLES = {"users", "debates", "utterances", "predictions", "empathies", "reports", "daily_usage"}
 
 
 @pytest.mark.parametrize(

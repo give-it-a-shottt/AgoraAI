@@ -1,30 +1,32 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { CaretLeft, CaretRight, Question } from '@phosphor-icons/react'
+import { CaretLeft, CaretRight, Question, WarningCircle } from '@phosphor-icons/react'
 import { useQueryClient } from '@tanstack/react-query'
-import { ApiError } from '../api/client'
 import { Button } from '../components/Button'
 import { Character } from '../components/Character'
 import { Chip } from '../components/Chip'
 import { InputField } from '../components/InputField'
 import { StateBlock } from '../components/StateBlock'
-import { useAuth } from '../features/auth/authContext'
+import { quotaKey, useAuth } from '../features/auth/authContext'
 import { titleOf } from '../features/debate/cast'
 import { clearDraft, loadDraft, saveDraft } from '../features/create/draft'
+import { toFailureAction, type Outcome } from '../features/create/outcome'
 import { useCreateDebate, useQuota, useSimilar } from '../features/create/queries'
 import { TOPIC_SUGGESTIONS, type TopicPair } from '../features/create/suggestions'
-import { saveRecentDebate } from '../lib/recentDebates'
 import { TOPIC_MAX, TOPIC_MIN, validateTopic } from '../features/create/validate'
+import { parseServerTime } from '../lib/date'
+import { saveRecentDebate } from '../lib/recentDebates'
 import styles from './CreatePage.module.css'
 
-type Outcome =
-  | { kind: 'rejected'; reason: string; suggestions: TopicPair[] }
-  | { kind: 'user_limit'; resetAt: string }
-  | { kind: 'global_closed' }
-  | { kind: 'check_failed' }
+const CHIP_COUNT = 3 // Figma 23:2285 추천 주제 칩 개수
 
+/** 서버 시간(타임존 없는 UTC)을 한국 시간 "11월 23일 오전 12시"로 */
 const kstTime = (iso: string) =>
-  new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', month: 'long', day: 'numeric', hour: 'numeric' }).format(new Date(iso))
+  new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', month: 'long', day: 'numeric', hour: 'numeric' }).format(
+    parseServerTime(iso),
+  )
+
+const pairTitle = (t: TopicPair) => titleOf({ topic_a: t.a, topic_b: t.b })
 
 /** CRT_01_001 주제 입력 · 002 확인 중 · 003 거절 · 004 내 한도 · 006 전체 마감 · 007 확인 실패 (로그인은 COM_01_001) */
 export function CreatePage() {
@@ -37,6 +39,7 @@ export function CreatePage() {
     return fromUrl.a || fromUrl.b ? fromUrl : loadDraft()
   })
   const [touched, setTouched] = useState({ a: false, b: false })
+  const [formError, setFormError] = useState<string | null>(null)
   const [outcome, setOutcome] = useState<Outcome | null>(null)
   const quota = useQuota(auth.user !== null)
   const similar = useSimilar(form.a, form.b)
@@ -45,12 +48,18 @@ export function CreatePage() {
   useEffect(() => saveDraft(form), [form]) // 로그인하러 다녀와도·닫아도 입력 유지
 
   const errors = { a: validateTopic(form.a), b: validateTopic(form.b) }
+  const edit = (key: 'a' | 'b', value: string) => {
+    setForm((f) => ({ ...f, [key]: value }))
+    setFormError(null)
+  }
   const fill = (t: TopicPair) => {
     setForm({ a: t.a, b: t.b })
+    setFormError(null)
     setOutcome(null)
   }
 
   const start = async () => {
+    if (auth.loading) return // 로그인 확인 전에 누르면 로그인한 사람에게도 모달이 뜨지 않게
     setTouched({ a: true, b: true })
     if (errors.a || errors.b) return
     if (!auth.user) return auth.openLogin('/create')
@@ -58,17 +67,13 @@ export function CreatePage() {
       const { id } = await create.mutateAsync({ topic_a: form.a.trim(), topic_b: form.b.trim() })
       saveRecentDebate({ id, topic_a: form.a.trim(), topic_b: form.b.trim() })
       clearDraft()
-      void qc.invalidateQueries({ queryKey: ['me', 'quota'] })
+      void qc.invalidateQueries({ queryKey: quotaKey })
       navigate(`/debates/${encodeURIComponent(id)}`)
     } catch (e) {
-      if (!(e instanceof ApiError)) return setOutcome({ kind: 'check_failed' })
-      if (e.status === 401) return auth.openLogin('/create')
-      if (e.code === 'topic_rejected')
-        return setOutcome({ kind: 'rejected', reason: e.message, suggestions: (e.extra.suggestions as TopicPair[]) ?? [] })
-      if (e.code === 'user_limit') return setOutcome({ kind: 'user_limit', resetAt: String(e.extra.reset_at ?? '') })
-      if (e.code === 'global_closed') return setOutcome({ kind: 'global_closed' })
-      if (e.code === 'topic_invalid') return setTouched({ a: true, b: true })
-      setOutcome({ kind: 'check_failed' })
+      const action = toFailureAction(e)
+      if (action.type === 'login') return auth.openLogin('/create')
+      if (action.type === 'form') return setFormError(action.message)
+      setOutcome(action.outcome)
     }
   }
 
@@ -93,7 +98,7 @@ export function CreatePage() {
         <div className={styles.chips}>
           {outcome.suggestions.map((t) => (
             <Chip key={`${t.a}|${t.b}`} onClick={() => fill(t)}>
-              {titleOf({ topic_a: t.a, topic_b: t.b })}
+              {pairTitle(t)}
             </Chip>
           ))}
         </div>
@@ -103,12 +108,13 @@ export function CreatePage() {
   // §0-5 Flow B: 로그인 뒤 남은 횟수가 없으면 입력 전에 바로 CRT_01_004
   const limitReset =
     outcome?.kind === 'user_limit' ? outcome.resetAt : auth.user && quota.data?.remaining === 0 ? quota.data.reset_at : null
-  if (limitReset !== null) {
+  if (limitReset !== null || outcome?.kind === 'check_limit') {
+    const resetAt = limitReset ?? (outcome?.kind === 'check_limit' ? outcome.resetAt : '')
     return (
       <StateBlock
         character="cat"
-        title="오늘 만들 수 있는 토론을 다 썼어요"
-        description={limitReset ? `${kstTime(limitReset)}부터 다시 만들 수 있어요. 그동안 오늘의 토론을 봐 주세요.` : '내일 다시 만들 수 있어요.'}
+        title={limitReset !== null ? '오늘 만들 수 있는 토론을 다 썼어요' : '오늘은 주제 확인을 많이 했어요'}
+        description={resetAt ? `${kstTime(resetAt)}부터 다시 만들 수 있어요. 그동안 오늘의 토론을 봐 주세요.` : '내일 다시 만들 수 있어요.'}
         primary={{ label: '오늘의 토론 보기', onClick: () => navigate('/') }}
       />
     )
@@ -136,6 +142,13 @@ export function CreatePage() {
   }
 
   const found = similar.data?.debate
+  const remainText = !auth.user
+    ? '토론을 만들려면 로그인이 필요해요'
+    : quota.data
+      ? `오늘 남은 횟수 ${quota.data.remaining} / ${quota.data.limit}`
+      : quota.isError
+        ? '남은 횟수를 불러오지 못했어요'
+        : '남은 횟수를 확인하는 중…'
   return (
     <div className={styles.page}>
       <Link to="/" className={styles.back}>
@@ -152,9 +165,9 @@ export function CreatePage() {
           추천 주제
         </p>
         <div className={styles.chips}>
-          {TOPIC_SUGGESTIONS.slice(0, 3).map((t) => (
+          {TOPIC_SUGGESTIONS.slice(0, CHIP_COUNT).map((t) => (
             <Chip key={`${t.a}|${t.b}`} onClick={() => fill(t)}>
-              {titleOf({ topic_a: t.a, topic_b: t.b })}
+              {pairTitle(t)}
             </Chip>
           ))}
         </div>
@@ -175,7 +188,7 @@ export function CreatePage() {
           maxLength={TOPIC_MAX}
           helper={`${TOPIC_MIN}~${TOPIC_MAX}자`}
           error={touched.a ? errors.a : null}
-          onChange={(e) => setForm((f) => ({ ...f, a: e.target.value }))}
+          onChange={(e) => edit('a', e.target.value)}
           onBlur={() => setTouched((t) => ({ ...t, a: true }))}
         />
         <p className={styles.vs} aria-hidden="true">
@@ -188,9 +201,14 @@ export function CreatePage() {
           maxLength={TOPIC_MAX}
           helper={`${TOPIC_MIN}~${TOPIC_MAX}자`}
           error={touched.b ? errors.b : null}
-          onChange={(e) => setForm((f) => ({ ...f, b: e.target.value }))}
+          onChange={(e) => edit('b', e.target.value)}
           onBlur={() => setTouched((t) => ({ ...t, b: true }))}
         />
+        {formError && (
+          <p className={styles.formError} role="alert">
+            <WarningCircle size={16} aria-hidden="true" /> {formError}
+          </p>
+        )}
         {found && (
           <div className={styles.similar} role="status">
             <p className={styles.similarTitle}>
@@ -206,17 +224,11 @@ export function CreatePage() {
 
         <div className={styles.actions}>
           <div className={styles.remain}>
-            {auth.user && quota.data ? (
-              <p className={`ts-body-14-m ${styles.sub}`}>
-                오늘 남은 횟수 {quota.data.remaining} / {quota.data.limit}
-              </p>
-            ) : (
-              <p className={`ts-body-14-m ${styles.sub}`}>{auth.user ? '남은 횟수를 확인하는 중…' : '토론을 만들려면 로그인이 필요해요'}</p>
-            )}
+            <p className={`ts-body-14-m ${styles.sub}`}>{remainText}</p>
             <p className={`ts-caption-12-r ${styles.weak}`}>주제 확인에서 거절되면 줄지 않아요</p>
           </div>
-          <Button type="submit" className={styles.submit}>
-            {auth.user ? '토론 시작' : '로그인하고 토론 시작'}
+          <Button type="submit" className={styles.submit} softDisabled={auth.loading}>
+            {auth.user || auth.loading ? '토론 시작' : '로그인하고 토론 시작'}
           </Button>
         </div>
       </form>

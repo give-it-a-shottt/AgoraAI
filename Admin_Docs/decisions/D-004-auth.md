@@ -7,7 +7,9 @@
 왜: agora-design.md §0-6에서 "로그인 필수(생성)"로 사용자가 고름. 면접관은 로그인 없이 1~2분 본다.
 
 ## 개발자 상세
-- 로그인 후 서버가 서명한 세션 쿠키(HttpOnly, SameSite=Lax)에 사용자 번호만 담는다. 비밀키는 환경변수 SESSION_SECRET.
+- 로그인 후 서버가 서명한 세션 쿠키(HttpOnly, SameSite=Lax)에 사용자 번호와 세션 버전만 담는다. 비밀키는 환경변수 SESSION_SECRET.
+- 로그아웃하면 users.session_version을 올려 이미 나간 쿠키(복사된 것 포함)를 모두 무효로 만든다(F-007 R2). 그래서 로그아웃은 모든 기기에서 된다.
+- Vercel 위(환경변수 VERCEL 있음)에서는 APP_ENV와 상관없이 운영으로 본다 — 개발용 로그인 닫힘, 비밀값 검사 켜짐.
 - 토큰을 localStorage에 두지 않는다(XSS로 빼가기 어렵게).
 - 로그인 없는 행동(예측·공감·신고)은 브라우저 무작위 번호(browser_id)로 한 번만 하게 막는다. browser_id는 위조할 수 있어서, 양은 접속 주소 해시 기준 요청 수 제한으로 묶는다(10분 예측 30·공감 60, 1시간 신고 10). 배포 환경은 TRUST_PROXY=true로 Vercel이 직접 넣는 x-vercel-forwarded-for·x-real-ip를 쓰고, 없으면 X-Forwarded-For의 맨 오른쪽(프록시가 붙인) 값만 쓴다 — 요청자가 앞부분에 가짜 주소를 끼워 넣어도 무시된다.
 - 로컬에 OAuth 키가 없으면 개발용 로그인(APP_ENV가 production이 아닐 때만)을 쓴다.
