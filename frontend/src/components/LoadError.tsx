@@ -3,11 +3,11 @@ import { ApiError } from '../api/client'
 import { StateBlock } from './StateBlock'
 import { NotFoundState } from './NotFoundState'
 
-type Props = { error: unknown; onRetry: () => void }
+type Props = { error: unknown; onRetry: () => void; /** 홈 화면 자체에서는 [홈으로]가 필요 없다 */ withHome?: boolean }
 
 /** 화면 데이터를 못 불러왔을 때 공통 처리:
  * 없는 토론(404) → COM_01_003, 인터넷 끊김 → COM_01_002, 그 밖 → 다시 시도. */
-export function LoadError({ error, onRetry }: Props) {
+export function LoadError({ error, onRetry, withHome = true }: Props) {
   const navigate = useNavigate()
   if (error instanceof ApiError && error.status === 404) return <NotFoundState />
   if (error instanceof ApiError && error.isNetwork) {
@@ -25,7 +25,7 @@ export function LoadError({ error, onRetry }: Props) {
       title="잠시 문제가 생겼어요"
       description={error instanceof ApiError ? error.message : '잠시 후 다시 시도해 주세요.'}
       primary={{ label: '다시 시도', onClick: onRetry }}
-      secondary={{ label: '홈으로', onClick: () => navigate('/') }}
+      secondary={withHome ? { label: '홈으로', onClick: () => navigate('/') } : undefined}
     />
   )
 }

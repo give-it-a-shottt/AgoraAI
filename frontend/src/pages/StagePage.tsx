@@ -30,6 +30,7 @@ export const SLOW_AFTER_S = 30 // §8 대기 30초 → "생각보다 오래 걸�
 export const STALLED_AFTER_S = 60 // §8 대기 60초 → Error Inline + [다시 시도]
 
 const isHiddenError = (e: unknown) => e instanceof ApiError && e.code === 'hidden'
+const isNetworkError = (e: unknown) => e instanceof ApiError && e.isNetwork
 
 /** DEB_01_002 무대 (멈춤 DEB_01_007, 가려짐 DEB_01_008) */
 export function StagePage() {
@@ -50,13 +51,19 @@ export function StagePage() {
     )
   }
   return (
-    <Stage debate={detail.data} list={utterances.data} refetch={() => utterances.refetch()} />
+    <Stage
+      debate={detail.data}
+      list={utterances.data}
+      refetch={() => utterances.refetch()}
+      offline={isNetworkError(utterances.error)}
+    />
   )
 }
 
-type StageProps = { debate: DebateDetail; list: UtteranceList; refetch: () => Promise<unknown> }
+/** offline: 받은 발언은 그대로 두고, 다음 발언을 기다리는 자리에만 COM_01_002를 보인다(보던 라운드 유지). */
+type StageProps = { debate: DebateDetail; list: UtteranceList; refetch: () => Promise<unknown>; offline: boolean }
 
-function Stage({ debate, list, refetch }: StageProps) {
+function Stage({ debate, list, refetch, offline }: StageProps) {
   const navigate = useNavigate()
   const toast = useToast()
   const reduced = useReducedMotion()
@@ -176,7 +183,7 @@ function Stage({ debate, list, refetch }: StageProps) {
     return (
       <div className={styles.page}>
         {header}
-        <WaitingNotice elapsed={wait.elapsed} refreshing={checking} onRefresh={onRefresh}>
+        <WaitingNotice elapsed={wait.elapsed} refreshing={checking} onRefresh={onRefresh} offline={offline}>
           <Character character={first.character} size={160} />
           <p className={`ts-body-15-m ${styles.sub}`}>{withIGa(first.name)} 1R 주장을 준비하고 있어요</p>
         </WaitingNotice>
@@ -235,7 +242,7 @@ function Stage({ debate, list, refetch }: StageProps) {
             </p>
           </div>
         )}
-        {waiting && <WaitingNotice elapsed={wait.elapsed} refreshing={checking} onRefresh={onRefresh} compact />}
+        {waiting && <WaitingNotice elapsed={wait.elapsed} refreshing={checking} onRefresh={onRefresh} offline={offline} compact />}
 
         <div className={styles.actions}>
           <Button
@@ -274,14 +281,27 @@ function WaitingNotice({
   refreshing,
   onRefresh,
   compact,
+  offline,
   children,
 }: {
   elapsed: number
   refreshing: boolean
   onRefresh: () => void
   compact?: boolean
+  offline: boolean
   children?: ReactNode
 }) {
+  if (offline) {
+    // COM_01_002 — 폴링은 계속 돌아서 연결이 돌아오면 저절로 이어진다. 버튼은 바로 확인하고 싶을 때.
+    return (
+      <div className={styles.inlineError} role="alert">
+        <p className="ts-body-15-m">인터넷 연결이 끊겼어요. 연결되면 보던 라운드부터 이어서 보여 드려요.</p>
+        <Button variant="secondary" size="m" softDisabled={refreshing} onClick={onRefresh}>
+          {refreshing ? '다시 확인하는 중…' : '다시 시도'}
+        </Button>
+      </div>
+    )
+  }
   if (elapsed >= STALLED_AFTER_S) {
     return (
       <div className={styles.inlineError} role="alert">

@@ -29,14 +29,14 @@
 | POST /api/debates/{id}/judge/retry | - | - | Result(judge_status=pending으로 바로 돌려주고 판정은 백그라운드 — 화면은 결과를 다시 읽음) | 400, 404, 410, 409 `not_finished`·`not_failed`·`judge_limit`(토론당 판정 시도 4번) |
 | POST /api/debates/{id}/reports | - | `{reason: "hate"\|"person"\|"sexual"\|"offtopic"\|"other"}` | `{reported: true, hidden}` (브라우저당 1번, 서로 다른 접속자 3곳이면 hidden — Q-013) | 400, 404, 410, 422, 429 `too_many_requests`(접속자당 1시간 10건) |
 | GET /api/me/quota | 필요 | - | `{remaining, limit, reset_at}` (reset_at: 한국 다음 날 0시, 다른 시간 값처럼 타임존 없는 UTC — 프론트는 Z를 붙여 읽음) | 401 |
-| POST /api/debates | 필요 | `{topic_a, topic_b}` (각 2~30자) | 201 `{id}` (주제 확인 통과 후 생성, 발언은 백그라운드) | 401, 422 `topic_invalid`(길이·꺾쇠 기호) · `topic_rejected`(message에 이유, suggestions: `[{a, b}]`), 429 `user_limit`(+reset_at) · `check_limit`(+reset_at, 사람당 하루 AI 확인 횟수 — 거절돼도 셈), 503 `global_closed`(전체 만들기 또는 전체 AI 확인 횟수 소진), 502 `check_failed` |
+| POST /api/debates | 필요 | `{topic_a, topic_b}` (각 2~30자) | 201 `{id}` (주제 확인 통과 후 생성, 발언은 백그라운드) | 401, 422 `topic_invalid`(길이·꺾쇠 기호) · `topic_rejected`(message에 이유, suggestions: `[{a, b}]`), 429 `user_limit`(+reset_at) · `check_limit`(+reset_at, 사람당 하루 AI 확인 횟수 — 거절돼도 셈), 503 `global_closed`(전체 만들기 또는 전체 AI 확인 횟수 소진), 502 `check_failed`. 본문이 200자를 넘는 등 형식 오류는 FastAPI 기본 422(detail 배열 — 화면은 "입력한 내용을 다시 확인해 주세요") |
 | GET /api/auth/me | - | - | `{user: {id, nickname} \| null}` | - |
 | GET /api/auth/providers | - | - | `{google, kakao, dev}` (bool) | - |
 | GET /api/auth/{google\|kakao}/login?next= | - | - | 302 → 제공자 | 404 미설정 |
 | GET /api/auth/{google\|kakao}/callback | - | code, state | 302 → next(세션 쿠키 설정) | 실패(state 불일치·동의 취소·제공자 오류)는 302 → `/?login=failed`(화면이 토스트로 안내) |
 | POST /api/auth/dev-login | - | - | `{user}` | 404 (production) |
 | POST /api/auth/logout | - | - | `{ok}` (세션 버전을 올려 이 사용자의 모든 기기 쿠키를 무효로) | - |
-| GET /api/cron/today | Bearer CRON_SECRET | - | `{id}` | 401 |
+| GET /api/cron/today | `Authorization: Bearer CRON_SECRET`(Vercel Cron) | - | `{debate_id, source, created}` — debate_id는 문자열 또는 null, source는 existing·pool·promoted 또는 null (하루 한 번만 지정, 새로 만들면 생성은 백그라운드) | 401 `unauthorized`, 503 `cron_not_configured`(비밀값 없음) |
 | GET /share/{id} | - | - | OG 메타가 든 HTML → /debates/{id}로 이동 | 404 |
 | GET /api/og/{id}.png | - | - | 1200×630 PNG(승자 없음) | 404 |
 

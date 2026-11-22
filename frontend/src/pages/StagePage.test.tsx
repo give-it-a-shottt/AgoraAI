@@ -230,4 +230,24 @@ describe('StagePage 예외 경로', () => {
     expect(screen.queryByRole('heading', { name: '잠시 문제가 생겼어요' })).not.toBeInTheDocument()
   })
 
+  it('폴링 중 인터넷이 끊기면 기다리는 자리에 COM_01_002, 다시 연결되면 이어서', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    let calls = 0
+    let online = false
+    setup(() => (calls >= 2 && online ? list(2, 'generating') : list(1, 'generating')), (url) => {
+      if (url.pathname === '/api/debates/d1/utterances') {
+        calls += 1
+        if (calls > 1 && !online) throw new TypeError('Failed to fetch')
+      }
+      return undefined
+    })
+    expect(await screen.findByText('자막1')).toBeInTheDocument()
+    await act(async () => { await vi.advanceTimersByTimeAsync(3_000) })
+    expect(await screen.findByText(/인터넷 연결이 끊겼어요/)).toBeInTheDocument()
+    expect(screen.getByText('자막1')).toBeInTheDocument()
+    online = true
+    await userEvent.click(screen.getByRole('button', { name: '다시 시도' }))
+    await act(async () => { await vi.advanceTimersByTimeAsync(3_000) })
+    expect(screen.queryByText(/인터넷 연결이 끊겼어요/)).not.toBeInTheDocument()
+  })
 })

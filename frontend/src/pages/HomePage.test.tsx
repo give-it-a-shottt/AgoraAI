@@ -72,7 +72,17 @@ describe('HomePage (HOM_01_001)', () => {
   it('불러오기 실패면 다시 시도 안내', async () => {
     mockApi(() => ({ status: 500, body: { detail: { code: 'internal', message: 'x' } } }))
     renderPage(<HomePage />)
-    expect(await screen.findByRole('heading', { name: '토론을 불러오지 못했어요' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '잠시 문제가 생겼어요' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '다시 시도' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '홈으로' })).not.toBeInTheDocument()
+  })
+
+  it('인터넷이 끊기면 COM_01_002', async () => {
+    mockApi(() => {
+      throw new TypeError('Failed to fetch')
+    })
+    renderPage(<HomePage />)
+    expect(await screen.findByRole('heading', { name: '인터넷 연결이 끊겼어요' })).toBeInTheDocument()
   })
 })
 

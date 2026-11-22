@@ -1,5 +1,5 @@
 import { Skeleton } from '../components/Skeleton'
-import { StateBlock } from '../components/StateBlock'
+import { LoadError } from '../components/LoadError'
 import { useTodayDebate } from '../features/debate/queries'
 import { DebateListSection } from '../features/home/DebateListSection'
 import { HomeEmpty } from '../features/home/HomeEmpty'
@@ -18,15 +18,7 @@ export function HomePage() {
       </div>
     )
   }
-  if (today.isError) {
-    return (
-      <StateBlock
-        title="토론을 불러오지 못했어요"
-        description="인터넷 연결을 확인하고 다시 시도해 주세요."
-        primary={{ label: '다시 시도', onClick: () => today.refetch() }}
-      />
-    )
-  }
+  if (today.isError) return <LoadError error={today.error} onRetry={() => today.refetch()} withHome={false} />
   if (today.data === null) return <HomeEmpty />
 
   return (
