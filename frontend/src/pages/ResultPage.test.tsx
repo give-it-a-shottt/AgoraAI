@@ -168,3 +168,21 @@ describe('ResultPage 예외 경로', () => {
     expect(await screen.findByRole('heading', { name: '잠시 문제가 생겼어요' })).toBeInTheDocument()
   })
 })
+
+describe('공유 시트 (DEB_01_004)', () => {
+  it('미리보기·안내를 보여 주고 링크를 복사한다(카카오 키가 없으면 카카오용 링크 복사)', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } })
+    setup(result())
+    await userEvent.click(await screen.findByRole('button', { name: '결과 공유하기' }))
+    const dialog = screen.getByRole('dialog', { name: '결과 공유하기' })
+    expect(within(dialog).getByText('평생 짜장 vs 평생 짬뽕')).toBeInTheDocument()
+    expect(within(dialog).getByText('누가 이겼을까요? 먼저 예측하고 보세요')).toBeInTheDocument()
+    expect(within(dialog).queryByText(/(짜장|짬뽕) 승/)).not.toBeInTheDocument() // 승자 없음
+    await userEvent.click(within(dialog).getByRole('button', { name: '링크 복사' }))
+    expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/share/d1`)
+    expect(await screen.findByText('링크를 복사했어요')).toBeInTheDocument()
+    await userEvent.click(within(dialog).getByRole('button', { name: '카카오톡용 링크 복사' }))
+    expect(await screen.findByText('카카오톡에 붙여 넣을 링크를 복사했어요')).toBeInTheDocument()
+  })
+})

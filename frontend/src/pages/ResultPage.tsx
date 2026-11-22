@@ -17,8 +17,8 @@ import { AudienceCard, Meter, PredictionCard } from '../features/result/cards'
 import { MetricsPopup } from '../features/result/MetricsPopup'
 import { resultKey, useReport, useResult, useRetryJudge } from '../features/result/queries'
 import { ReportPopup } from '../features/result/ReportPopup'
+import { SharePopup } from '../features/result/SharePopup'
 import { isJudged } from '../features/result/rules'
-import { copyText, shareUrlOf } from '../lib/clipboard'
 import styles from './ResultPage.module.css'
 
 /** DEB_01_003 결과 (판정 실패 DEB_01_009, 지표 설명 DEB_01_005, 신고 DEB_01_006) */
@@ -60,6 +60,7 @@ function ResultView({ debate, result }: { debate: DebateDetail; result: Result }
   const report = useReport(debate.id)
   const [metricsOpen, setMetricsOpen] = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
   const [judgeLimited, setJudgeLimited] = useState(false)
   const retried = useRef(false)
   const stagePath = `/debates/${encodeURIComponent(debate.id)}/stage`
@@ -95,11 +96,6 @@ function ResultView({ debate, result }: { debate: DebateDetail; result: Result }
       },
       onError: (e) => toast.show(e instanceof ApiError ? e.message : '신고하지 못했어요. 다시 시도해 주세요.'),
     })
-  }
-
-  // F-006에서 공유 시트로 바뀐다. 지금은 공유 주소를 복사한다.
-  const onShare = async () => {
-    toast.show((await copyText(shareUrlOf(debate.id))) ? '링크를 복사했어요' : '복사하지 못했어요. 주소창의 링크를 써 주세요.')
   }
 
   return (
@@ -161,7 +157,7 @@ function ResultView({ debate, result }: { debate: DebateDetail; result: Result }
           다른 토론
         </Button>
         {judged ? (
-          <Button className={styles.flex2} onClick={onShare}>
+          <Button className={styles.flex2} onClick={() => setShareOpen(true)}>
             결과 공유하기
           </Button>
         ) : (
@@ -182,6 +178,7 @@ function ResultView({ debate, result }: { debate: DebateDetail; result: Result }
         agreeRate={result.metrics.agree_rate}
         humanAgreement={result.metrics.human_agreement}
       />
+      <SharePopup open={shareOpen} debate={debate} onClose={() => setShareOpen(false)} />
       <ReportPopup open={reportOpen} submitting={report.isPending} onClose={() => setReportOpen(false)} onSubmit={onReport} />
     </div>
   )

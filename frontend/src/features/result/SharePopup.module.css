@@ -1,0 +1,19 @@
+.preview {
+  height: 222px; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; gap: var(--space-2);
+  padding: 0 var(--space-6); border-radius: var(--radius-card); background: var(--bg-regular);
+}
+.sub { color: var(--text-sub); }
+.note { display: flex; align-items: center; gap: var(--space-1); color: var(--text-sub); }
+.actions { display: flex; gap: var(--space-2); }
+/* 카카오 공식 색은 "노랑=자막 전용" 규칙의 유일한 예외(§7 소셜 버튼) */
+.kakao {
+  flex: 1 1 0; height: 52px; display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2);
+  padding: 0 var(--space-5); border-radius: var(--radius-button); background: var(--social-kakao); color: var(--text-main);
+  font-size: 16px; font-weight: 600; line-height: 1.4; letter-spacing: -0.025em; white-space: nowrap;
+}
+.copy { flex: 1 1 0; height: 52px; }
+@media (max-width: 639px) {
+  .preview { height: 180px; }
+  .actions { flex-direction: column; }
+  .kakao, .copy { flex: none; width: 100%; }
+}
