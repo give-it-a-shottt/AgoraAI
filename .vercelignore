@@ -1,0 +1,11 @@
+# 로컬 전용 파일은 배포 번들에 넣지 않는다(비밀값·DB·가상환경)
+**/.env
+**/.env.*
+!**/.env.example
+**/*.db
+**/.venv
+**/node_modules
+**/__pycache__
+**/.pytest_cache
+backend/tests
+frontend/src/**/*.test.*

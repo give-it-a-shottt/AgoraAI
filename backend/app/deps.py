@@ -51,12 +51,18 @@ def client_ip(request: Request, trust_proxy: bool) -> str:
 ClientKey = Annotated[str, Depends(client_key)]
 
 
-def load_visible_debate(db: Session, debate_id: str) -> Debate:
-    """발언·예측·공감·신고처럼 토론 '안'을 다루는 API용: 없으면 404, 가려졌으면 410.
-    상세(GET /api/debates/{id})만 예외로 200 + hidden=true를 준다 — 화면이 DEB_01_008 안내에 주제를 보여 줘야 해서."""
+def load_debate(db: Session, debate_id: str) -> Debate:
+    """없으면 404. 가려진 토론도 돌려준다(공유 주소처럼 '이동은 시키는' 곳에서 쓴다)."""
     debate = db.get(Debate, debate_id)
     if debate is None:
         raise api_error(404, "not_found", "없는 토론이에요.")
+    return debate
+
+
+def load_visible_debate(db: Session, debate_id: str) -> Debate:
+    """발언·예측·공감·신고처럼 토론 '안'을 다루는 API용: 없으면 404, 가려졌으면 410.
+    상세(GET /api/debates/{id})만 예외로 200 + hidden=true를 준다 — 화면이 DEB_01_008 안내에 주제를 보여 줘야 해서."""
+    debate = load_debate(db, debate_id)
     if debate.is_hidden:
         raise api_error(410, "hidden", "신고가 많아 가려진 토론이에요.")
     return debate

@@ -186,3 +186,14 @@ describe('공유 시트 (DEB_01_004)', () => {
     expect(await screen.findByText('카카오톡에 붙여 넣을 링크를 복사했어요')).toBeInTheDocument()
   })
 })
+
+describe('공유 시트 실패 경로', () => {
+  it('링크 복사가 막히면 안내', async () => {
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText: vi.fn().mockRejectedValue(new Error('no')) } })
+    document.execCommand = vi.fn(() => false)
+    setup(result())
+    await userEvent.click(await screen.findByRole('button', { name: '결과 공유하기' }))
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '링크 복사' }))
+    expect(await screen.findByText('복사하지 못했어요. 주소창의 링크를 써 주세요.')).toBeInTheDocument()
+  })
+})

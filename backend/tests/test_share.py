@@ -35,3 +35,36 @@ def test_og_image_is_png_1200x630(client, db):
 def test_share_missing(client):
     assert client.get("/share/nope").status_code == 404
     assert client.get("/api/og/nope.png").status_code == 404
+
+
+def test_share_404_uses_common_error_shape(client):
+    res = client.get("/share/nope")
+    assert res.json()["detail"]["code"] == "not_found"
+
+
+def test_hidden_debate_redirects_but_hides_topic(client, db):
+    d = make_debate(db, "신고된", "문구", hidden=True)
+    res = client.get(f"/share/{d.id}")
+    assert res.status_code == 200 and f"/debates/{d.id}" in res.text
+    assert "신고된" not in res.text and "Agora AI 토론장" in res.text
+    assert "max-age=60" in res.headers["cache-control"]
+    img = client.get(f"/api/og/{d.id}.png")
+    assert img.status_code == 200 and "max-age=60" in img.headers["cache-control"]
+
+
+def test_og_image_falls_back_when_render_fails(client, db, monkeypatch):
+    from app.services import share
+
+    def boom(*a, **k):
+        raise OSError("폰트 없음")
+
+    monkeypatch.setattr(share, "_render", boom)
+    d = make_debate(db)
+    res = client.get(f"/api/og/{d.id}.png")
+    assert res.status_code == 200 and Image.open(io.BytesIO(res.content)).size == (1200, 630)
+
+
+def test_og_cache_headers_allow_cdn(client, db):
+    d = make_debate(db)
+    assert "s-maxage=86400" in client.get(f"/api/og/{d.id}.png").headers["cache-control"]
+    assert "s-maxage=300" in client.get(f"/share/{d.id}").headers["cache-control"]

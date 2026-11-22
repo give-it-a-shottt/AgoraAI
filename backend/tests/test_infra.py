@@ -65,11 +65,17 @@ def test_unexpected_error_hides_internals():
 
 def test_production_rejects_dev_secrets():
     with pytest.raises(ValueError, match="SESSION_SECRET"):
-        Settings(app_env="production", database_url="postgresql://x/y", cron_secret="c")
+        Settings(app_env="production", database_url="postgresql://x/y", cron_secret="c", public_base_url="https://a.b")
     with pytest.raises(ValueError, match="CRON_SECRET"):
-        Settings(app_env="production", database_url="postgresql://x/y", session_secret="s" * 40)
+        Settings(app_env="production", database_url="postgresql://x/y", session_secret="s" * 40, public_base_url="https://a.b")
+    with pytest.raises(ValueError, match="PUBLIC_BASE_URL"):
+        Settings(app_env="production", database_url="postgresql://x/y", session_secret="s" * 40, cron_secret="c")
     ok = Settings(
-        app_env="production", database_url="postgresql://x/y", session_secret="s" * 40, cron_secret="c"
+        app_env="production",
+        database_url="postgresql://x/y",
+        session_secret="s" * 40,
+        cron_secret="c",
+        public_base_url="https://agora.example",
     )
     assert ok.is_production
 

@@ -57,6 +57,8 @@ class Settings(BaseSettings):
             problems.append("CRON_SECRET")
         if self.database_url.startswith("sqlite"):
             problems.append("DATABASE_URL(Postgres)")
+        if not self.public_base_url.startswith("https://"):
+            problems.append("PUBLIC_BASE_URL(https 배포 주소 — 공유 미리보기·로그인 콜백에 씀)")
         if problems:
             raise ValueError("운영 환경 설정이 빠졌어요: " + ", ".join(problems))
         return self

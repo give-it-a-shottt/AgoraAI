@@ -2,6 +2,8 @@
  * SDK는 공유 버튼을 누를 때만 불러온다(첫 화면 무게를 늘리지 않게). */
 const KAKAO_JS_KEY = import.meta.env.VITE_KAKAO_JS_KEY as string | undefined
 const SDK_URL = 'https://t1.kakaocdn.net/kakao_js_sdk/2.7.4/kakao.min.js'
+// 파일이 바뀌면(CDN 변조 등) 브라우저가 실행을 막는다(SRI). 2.7.4 파일로 계산한 값.
+const SDK_INTEGRITY = 'sha384-DKYJZ8NLiK8MN4/C5P2dtSmLQ4KwPaoqAfyA/DfmEc1VDxu4yyC7wy6K1Hs90nka'
 
 type KakaoSdk = {
   isInitialized: () => boolean
@@ -24,6 +26,7 @@ function loadSdk(): Promise<KakaoSdk> {
   loading ??= new Promise((resolve, reject) => {
     const script = document.createElement('script')
     script.src = SDK_URL
+    script.integrity = SDK_INTEGRITY
     script.crossOrigin = 'anonymous'
     script.onload = () => (window.Kakao ? resolve(window.Kakao) : reject(new Error('kakao sdk')))
     script.onerror = () => {

@@ -20,6 +20,3 @@ export async function copyText(text: string): Promise<boolean> {
     }
   }
 }
-
-/** 공유 주소(§8: /share/{토론ID} — 받은 사람은 승부 예측부터) */
-export const shareUrlOf = (debateId: string) => `${window.location.origin}/share/${encodeURIComponent(debateId)}`

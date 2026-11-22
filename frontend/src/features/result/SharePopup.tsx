@@ -4,12 +4,11 @@ import { Button } from '../../components/Button'
 import { Logo } from '../../components/Logo'
 import { Popup } from '../../components/Popup'
 import { useToast } from '../../components/toastContext'
-import { copyText, shareUrlOf } from '../../lib/clipboard'
+import { copyText } from '../../lib/clipboard'
+import { ogImageUrlOf, SHARE_DESCRIPTION, shareUrlOf } from '../../lib/share'
 import { kakaoAvailable, shareToKakao } from '../../lib/kakao'
 import { titleOf } from '../debate/cast'
 import styles from './SharePopup.module.css'
-
-export const SHARE_DESCRIPTION = '누가 이겼을까요? 먼저 예측하고 보세요' // 서버 OG 문구와 같음(services/share.py)
 
 type Props = { open: boolean; debate: DebateDetail; onClose: () => void }
 
@@ -26,7 +25,7 @@ export function SharePopup({ open, debate, onClose }: Props) {
     const sent = await shareToKakao({
       title: titleOf(debate),
       description: SHARE_DESCRIPTION,
-      imageUrl: `${window.location.origin}/api/og/${encodeURIComponent(debate.id)}.png`,
+      imageUrl: ogImageUrlOf(debate.id),
       url,
     })
     if (!sent) {

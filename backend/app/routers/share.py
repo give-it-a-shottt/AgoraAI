@@ -4,36 +4,32 @@ from fastapi import APIRouter, Response
 from fastapi.responses import HTMLResponse
 
 from app.config import get_settings
-from app.deps import DB, DebateId
-from app.errors import api_error
-from app.models import Debate
+from app.deps import DB, DebateId, load_debate
 from app.services import share
 
 router = APIRouter(tags=["share"])
 
-
-def _debate(db, debate_id: str) -> Debate:
-    debate = db.get(Debate, debate_id)
-    if debate is None:
-        raise api_error(404, "not_found", "없는 토론이에요.")
-    return debate
+# s-maxage: Vercel CDN이 엣지에 캐시하게(같은 요청이 함수 실행을 반복하지 않게). 가려진 토론은 짧게.
+CACHE_PAGE = "public, max-age=300, s-maxage=300"
+CACHE_IMAGE = "public, max-age=86400, s-maxage=86400, immutable"
+CACHE_HIDDEN = "public, max-age=60, s-maxage=60"
 
 
 @router.get("/share/{debate_id}", response_class=HTMLResponse)
 def share_page(debate_id: DebateId, db: DB) -> HTMLResponse:
-    debate = _debate(db, debate_id)
-    # 가려진 토론도 이동은 시킨다(화면이 DEB_01_008 안내를 보여 줌). 미리보기는 주제만이라 승자는 없다.
+    # 가려진 토론도 이동은 시킨다(화면이 DEB_01_008 안내를 보여 줌). 미리보기에는 주제를 넣지 않는다.
+    debate = load_debate(db, debate_id)
     return HTMLResponse(
         share.share_html(debate, get_settings().public_base_url),
-        headers={"Cache-Control": "public, max-age=300"},
+        headers={"Cache-Control": CACHE_HIDDEN if debate.is_hidden else CACHE_PAGE},
     )
 
 
 @router.get("/api/og/{debate_id}.png")
 def og_image(debate_id: DebateId, db: DB) -> Response:
-    debate = _debate(db, debate_id)
+    debate = load_debate(db, debate_id)
     return Response(
         share.og_image(debate),
         media_type="image/png",
-        headers={"Cache-Control": "public, max-age=86400"},  # 주제는 바뀌지 않아 하루 캐시
+        headers={"Cache-Control": CACHE_HIDDEN if debate.is_hidden else CACHE_IMAGE},
     )
