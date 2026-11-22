@@ -19,8 +19,8 @@
 | GET /api/debates?sort=popular\|latest&page=1&size=5 | - | - | `{items: DebateSummary[], page, total_pages, total}` — 오늘의 토론(맨 위 카드)은 목록·total에서 뺌. 마지막보다 큰 page는 빈 items | 422(page 1~1000, size 1~20 밖) |
 | GET /api/debates/similar?a=&b= | - | - | `{debate: DebateSummary \| null}` | - |
 | GET /api/debates/{id} | - | - | DebateDetail(가려진 토론은 hidden=true, 개수 0) | 404 `not_found`, 422(id 16자 초과) |
-| GET /api/debates/{id}/utterances?after=0 | - | - | `{items: Utterance[], status, total: 6}` | 404 |
-| POST /api/debates/{id}/retry | - | - | `{status}` | 404, 409 `not_paused`, 503 `global_closed` |
+| GET /api/debates/{id}/utterances?after=0 | - | - | `{items: Utterance[], status, total: 6}` — after보다 큰 순번만. 멈춘 생성이면 서버가 다시 깨움 | 404, 410 `hidden`, 422(after 0~6 밖) |
+| POST /api/debates/{id}/retry | - | - | `{status}` (generating으로 바뀌고 백그라운드로 이어서 생성) | 404, 410 `hidden`, 409 `not_paused` |
 | POST /api/debates/{id}/predictions | - | `{pick: "A"\|"B"}` | `{pick}` (이미 했으면 기존 값) | 400, 404 |
 | GET /api/debates/{id}/predictions/me | - | - | `{pick: "A"\|"B"\|null}` | 400, 404 |
 | POST /api/utterances/{id}/empathy | - | - | `{count, empathized: true}` | 400, 404 |
