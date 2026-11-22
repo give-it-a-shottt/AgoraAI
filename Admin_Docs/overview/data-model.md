@@ -20,6 +20,6 @@
 - 기본값: status·judge_status·fail_count·is_hidden·is_seed·nickname은 DB 기본값(server_default)도 있어 ORM 밖 INSERT도 안전.
 - 예측·공감·신고의 토론/발언 번호 칸은 UNIQUE의 앞 칸이라 별도 인덱스를 두지 않는다(UNIQUE가 대신함).
 - client_hash: 접속 주소(IP)에 서버 비밀값을 섞은 해시 앞 32자. 요청 수 제한에만 쓰고 IP 원문은 저장하지 않는다.
-- 숨김: 신고 3건이면 is_hidden=true. 되돌리기는 DB에서 is_hidden=false로 바꾼다(관리 화면 없음).
+- 숨김: 서로 다른 접속자(client_hash) 3곳이 신고하면 is_hidden=true(Q-013). 되돌리기는 `uv run python -m app.jobs.unhide <토론ID> [--clear-reports]`(관리 화면 없음).
 
 최종 수정: 2026-11-22 · 관련: D-003, F-002, F-005

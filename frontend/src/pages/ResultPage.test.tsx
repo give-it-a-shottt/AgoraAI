@@ -120,3 +120,51 @@ describe('ResultPage (DEB_01_003)', () => {
     expect(await screen.findByRole('heading', { name: '신고가 많아 가려 둔 토론이에요' })).toBeInTheDocument()
   })
 })
+
+describe('ResultPage 예외 경로', () => {
+  it('다시 요청한 판정이 또 실패하면 알려 준다', async () => {
+    let status: Result['judge_status'] = 'failed'
+    setup(
+      {},
+      (url, init) => {
+        if (url.pathname === '/api/debates/d1/result') return { body: result({ judge_status: status, winner: null, judge_reason: null }) }
+        if (url.pathname === '/api/debates/d1/judge/retry' && init.method === 'POST') {
+          status = 'failed' // 백그라운드 판정이 또 실패
+          return { body: result({ judge_status: 'pending', winner: null, judge_reason: null }) }
+        }
+      },
+    )
+    await userEvent.click(await screen.findByRole('button', { name: '판정 다시 요청' }))
+    expect(await screen.findByText('아직 판정하지 못했어요. 잠시 뒤 다시 눌러 주세요.', {}, { timeout: 5000 })).toBeInTheDocument()
+  })
+
+  it('판정 시도 상한이면 버튼을 숨기고 안내', async () => {
+    setup(result({ judge_status: 'failed', winner: null, judge_reason: null }), (url, init) => {
+      if (url.pathname === '/api/debates/d1/judge/retry' && init.method === 'POST')
+        return { status: 409, body: { detail: { code: 'judge_limit', message: '판정을 더 시도할 수 없어요.' } } }
+    })
+    await userEvent.click(await screen.findByRole('button', { name: '판정 다시 요청' }))
+    expect(await screen.findByText('판정을 더 시도할 수 없어요.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '판정 다시 요청' })).not.toBeInTheDocument()
+  })
+
+  it('신고가 실패하면 팝업을 두고 알린다, 다시 열면 선택이 비어 있다', async () => {
+    setup(result(), (url, init) => {
+      if (url.pathname === '/api/debates/d1/reports' && init.method === 'POST')
+        return { status: 429, body: { detail: { code: 'too_many_requests', message: '잠시 뒤에 다시 시도해 주세요.', retry_after: 9 } } }
+    })
+    await userEvent.click(await screen.findByRole('button', { name: '이 토론 신고하기' }))
+    await userEvent.click(screen.getByRole('radio', { name: '기타' }))
+    await userEvent.click(screen.getByRole('button', { name: '신고하기' }))
+    expect(await screen.findByText('잠시 뒤에 다시 시도해 주세요.')).toBeInTheDocument()
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: '취소' }))
+    await userEvent.click(screen.getByRole('button', { name: '이 토론 신고하기' }))
+    expect(screen.getByRole('radio', { name: '기타' })).not.toBeChecked()
+  })
+
+  it('결과를 못 불러오면 LoadError', async () => {
+    setup({ detail: { code: 'internal', message: '잠시 후 다시 시도해 주세요.' } }, undefined, 500)
+    expect(await screen.findByRole('heading', { name: '잠시 문제가 생겼어요' })).toBeInTheDocument()
+  })
+})

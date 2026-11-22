@@ -115,7 +115,8 @@ def test_judge_retry_rules(client, db, use_judge):
     judging.judge_debate(d.id)
     judge.fail = False
     res = client.post(f"/api/debates/{d.id}/judge/retry")
-    assert res.status_code == 200 and res.json()["winner"] == "B"
+    assert res.status_code == 200 and res.json()["judge_status"] == "pending"  # 바로 대기로, 판정은 백그라운드
+    assert client.get(f"/api/debates/{d.id}/result").json()["winner"] == "B"
     again = client.post(f"/api/debates/{d.id}/judge/retry")
     assert again.status_code == 409 and again.json()["detail"]["code"] == "not_failed"
 
@@ -129,7 +130,17 @@ def test_judge_retry_limit(client, db, use_judge):
     assert res.status_code == 409 and res.json()["detail"]["code"] == "judge_limit"
 
 
-def test_reports_hide_after_three(client, db):
+def test_reports_hide_after_three(client, db, monkeypatch):
+    from app import deps
+
+    # 서로 다른 세 사람(접속자)처럼: 브라우저 번호를 접속자 키로 쓴다
+    client.app.dependency_overrides[deps.client_key] = lambda x_browser_id=None: "x"
+    from fastapi import Header
+
+    def per_browser(x_browser_id: str | None = Header(None)) -> str:
+        return f"client-{x_browser_id}"
+
+    client.app.dependency_overrides[deps.client_key] = per_browser
     d = make_debate(db)
     browsers = [f"5555555{i}-5555-4555-8555-555555555555" for i in range(3)]
     for i, b in enumerate(browsers):
@@ -154,3 +165,78 @@ def test_report_rate_limit(client, db, monkeypatch):
     assert client.post(f"/api/debates/{a.id}/reports", json={"reason": "hate"}).status_code == 200
     res = client.post(f"/api/debates/{b.id}/reports", json={"reason": "hate"})
     assert res.status_code == 429 and res.json()["detail"]["code"] == "too_many_requests"
+
+
+def test_one_person_cannot_hide_alone(client, db):
+    """브라우저 번호를 바꿔도 같은 접속자(IP 해시)면 1명으로 센다(Q-013)."""
+    d = make_debate(db)
+    for i in range(3):
+        b = f"6666666{i}-6666-4666-8666-666666666666"
+        assert client.post(f"/api/debates/{d.id}/reports", json={"reason": "hate"}, headers={"X-Browser-Id": b}).json()["hidden"] is False
+
+
+def test_stuck_pending_becomes_failed(client, db):
+    d = _finished(db)
+    d.judge_status, d.judge_attempts = "pending", judging.MAX_JUDGE_ATTEMPTS
+    db.commit()
+    assert client.get(f"/api/debates/{d.id}/result").json()["judge_status"] == "failed"
+
+
+def test_judge_lock_contention_and_stale_lock(db, use_judge):
+    from datetime import timedelta
+
+    from app.timeutil import utcnow
+
+    judge = use_judge(FixedJudge())
+    d = _finished(db)
+    d.lock_until = utcnow() + timedelta(seconds=60)  # 다른 작업이 판정 중
+    db.commit()
+    assert judging.judge_debate(d.id) == "pending" and judge.calls == 0
+    d = db.get(Debate, d.id)
+    d.lock_until = utcnow() - timedelta(seconds=1)  # 그 작업이 죽고 잠금 만료
+    db.commit()
+    db.expire_all()
+    assert judging.needs_judging(db.get(Debate, d.id))
+    assert judging.judge_debate(d.id) == "done"
+
+
+def test_short_stances_keep_fixed_denominator(db, use_judge):
+    class Short(FixedJudge):
+        def judge(self, a, b, turns):
+            return JudgeResult(winner="A", reason="r", stances=["rebut", "rebut"])
+
+    use_judge(Short())
+    d = _finished(db)
+    judging.judge_debate(d.id)
+    db.expire_all()
+    assert db.get(Debate, d.id).rebut_rate == pytest.approx(2 / 5)
+
+
+def test_judge_needs_six_utterances(db, use_judge):
+    use_judge(FixedJudge())
+    d = make_debate(db, utterances=4, winner=None)
+    assert judging.judge_debate(d.id) == "failed"
+
+
+def test_retry_and_report_errors(client, db):
+    assert client.post("/api/debates/nope/judge/retry").status_code == 404
+    assert client.post("/api/debates/nope/reports", json={"reason": "hate"}).status_code == 404
+    h = make_debate(db, hidden=True, utterances=6)
+    assert client.post(f"/api/debates/{h.id}/judge/retry").status_code == 410
+    assert client.post(f"/api/debates/{h.id}/reports", json={"reason": "hate"}).status_code == 410
+    d = _finished(db)
+    assert client.post(f"/api/debates/{d.id}/judge/retry", headers={"X-Browser-Id": "x"}).status_code == 400
+
+
+def test_unhide_job(db):
+    from app.jobs.unhide import unhide
+    from app.models import Report
+
+    d = make_debate(db, hidden=True)
+    db.add(Report(debate_id=d.id, browser_id="b", reason="hate", client_hash="c"))
+    db.commit()
+    assert unhide(d.id, clear_reports=True)
+    db.expire_all()
+    assert db.get(Debate, d.id).is_hidden is False
+    assert db.query(Report).filter_by(debate_id=d.id).count() == 0
+    assert unhide("nope") is False

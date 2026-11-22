@@ -62,11 +62,14 @@ def judge_debate(debate_id: str) -> str:
                 raise ValueError("발언이 다 모이지 않음")
             turns = [Turn(side=u.side, speaker=CHARACTERS[debate.character_of(u.side)]["name"], text=u.text) for u in items]
             result = judge_provider().judge(debate.topic_a, debate.topic_b, turns)
-            for utterance, stance in zip(items[1:], result.stances, strict=False):
+            # 분모를 "2번째 발언부터 5개"로 고정한다(심판이 덜 주면 neutral로 채우고, 더 주면 자른다).
+            expected = TOTAL_UTTERANCES - 1
+            stances = (list(result.stances) + ["neutral"] * expected)[:expected]
+            for utterance, stance in zip(items[1:], stances, strict=True):
                 utterance.stance_label = stance
             debate.winner = result.winner
             debate.judge_reason = result.reason
-            debate.rebut_rate, debate.agree_rate = compute_rates(result.stances)
+            debate.rebut_rate, debate.agree_rate = compute_rates(stances)
             debate.judge_status = "done"
         except Exception:
             s.rollback()
@@ -76,6 +79,35 @@ def judge_debate(debate_id: str) -> str:
         debate.lock_until = None
         s.commit()
         return debate.judge_status
+
+
+def queue_retry(db: Session, debate: Debate) -> bool:
+    """실패한 판정을 다시 대기(pending)로 돌린다. 실제 판정은 백그라운드에서(요청이 AI를 기다리며 연결을 잡지 않게)."""
+    result = db.execute(
+        update(Debate)
+        .where(
+            Debate.id == debate.id,
+            Debate.judge_status == "failed",
+            Debate.judge_attempts < MAX_JUDGE_ATTEMPTS,
+        )
+        .values(judge_status="pending", lock_until=None)
+    )
+    db.commit()
+    db.refresh(debate)
+    return result.rowcount == 1
+
+
+def settle_stuck(db: Session, debate: Debate) -> None:
+    """마지막 시도 중 작업이 죽어 pending으로 굳은 판정은 실패로 확정한다(안 그러면 "판정 준비 중"이 끝없이)."""
+    lock_expired = debate.lock_until is None or debate.lock_until < utcnow()
+    if (
+        debate.status == "done"
+        and debate.judge_status == "pending"
+        and debate.judge_attempts >= MAX_JUDGE_ATTEMPTS
+        and lock_expired
+    ):
+        debate.judge_status = "failed"
+        db.commit()
 
 
 def needs_judging(debate: Debate) -> bool:

@@ -3,6 +3,8 @@ import { api, post } from '../../api/client'
 import type { ReportReason, Result } from '../../api/types'
 import { debateKeys } from '../debate/queries'
 
+const MAX_POLLS = 48
+
 export const resultKey = (id: string) => ['debates', 'result', id] as const
 const base = (id: string) => `/api/debates/${encodeURIComponent(id)}`
 
@@ -11,7 +13,9 @@ export function useResult(debateId: string, enabled = true) {
   return useQuery({
     queryKey: resultKey(debateId),
     queryFn: () => api<Result>(`${base(debateId)}/result`),
-    refetchInterval: (q) => (q.state.data?.judge_status === 'pending' ? 2500 : false),
+    // 판정 중일 때만 2.5초마다. 서버가 굳은 판정을 실패로 정리하지만, 만약을 위해 약 2분(48번) 뒤엔 멈춘다.
+    refetchInterval: (q) =>
+      q.state.data?.judge_status === 'pending' && q.state.dataUpdateCount < MAX_POLLS ? 2500 : false,
     enabled,
   })
 }

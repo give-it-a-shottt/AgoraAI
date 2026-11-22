@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowClockwise, CaretLeft, CheckCircle, Question, Users, WarningCircle, XCircle } from '@phosphor-icons/react'
+import { useQueryClient } from '@tanstack/react-query'
+import { CaretLeft, Question } from '@phosphor-icons/react'
 import { ApiError } from '../api/client'
-import type { DebateDetail, Result } from '../api/types'
+import type { DebateDetail, ReportReason, Result } from '../api/types'
 import { Button } from '../components/Button'
 import { Character } from '../components/Character'
 import { LoadError } from '../components/LoadError'
@@ -12,10 +13,11 @@ import { useToast } from '../components/toastContext'
 import { titleOf, topicOf } from '../features/debate/cast'
 import { HiddenDebate } from '../features/debate/HiddenDebate'
 import { useDebateDetail } from '../features/debate/queries'
-import { percent } from '../features/result/format'
+import { AudienceCard, Meter, PredictionCard } from '../features/result/cards'
 import { MetricsPopup } from '../features/result/MetricsPopup'
-import { useReport, useResult, useRetryJudge } from '../features/result/queries'
+import { resultKey, useReport, useResult, useRetryJudge } from '../features/result/queries'
 import { ReportPopup } from '../features/result/ReportPopup'
+import { isJudged } from '../features/result/rules'
 import { copyText, shareUrlOf } from '../lib/clipboard'
 import styles from './ResultPage.module.css'
 
@@ -53,22 +55,39 @@ export function ResultPage() {
 function ResultView({ debate, result }: { debate: DebateDetail; result: Result }) {
   const navigate = useNavigate()
   const toast = useToast()
+  const qc = useQueryClient()
   const retryJudge = useRetryJudge(debate.id)
   const report = useReport(debate.id)
   const [metricsOpen, setMetricsOpen] = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
+  const [judgeLimited, setJudgeLimited] = useState(false)
+  const retried = useRef(false)
   const stagePath = `/debates/${encodeURIComponent(debate.id)}/stage`
-  const judged = result.judge_status === 'done' && result.winner !== null
+  const judged = isJudged(result)
+
+  // 다시 요청한 판정이 또 실패하면 알려 준다(버튼만 돌아오면 아무 일도 없던 것처럼 보이니까).
+  useEffect(() => {
+    if (!retried.current) return
+    if (result.judge_status === 'failed') {
+      retried.current = false
+      toast.show('아직 판정하지 못했어요. 잠시 뒤 다시 눌러 주세요.')
+    } else if (result.judge_status === 'done') {
+      retried.current = false
+    }
+  }, [result.judge_status, toast])
 
   const onRetryJudge = async () => {
     try {
       await retryJudge.mutateAsync()
+      retried.current = true
     } catch (e) {
+      if (e instanceof ApiError && e.code === 'judge_limit') setJudgeLimited(true)
       toast.show(e instanceof ApiError ? e.message : '판정을 다시 요청하지 못했어요.')
+      void qc.invalidateQueries({ queryKey: resultKey(debate.id) }) // 다른 탭에서 끝났을 수도 있다
     }
   }
 
-  const onReport = (reason: Parameters<typeof report.mutate>[0]) => {
+  const onReport = (reason: ReportReason) => {
     report.mutate(reason, {
       onSuccess: (res) => {
         setReportOpen(false)
@@ -94,7 +113,7 @@ function ResultView({ debate, result }: { debate: DebateDetail; result: Result }
         <div className={styles.verdictText}>
           <p className={`ts-body-15-m ${styles.sub}`}>AI 심판의 선택</p>
           <h1 id="verdict-title" className="ts-display-40">
-            {judged ? `${result.winner} ${topicOf(debate, result.winner!)} 승` : '판정 준비 중'}
+            {judged ? `${result.winner} ${topicOf(debate, result.winner)} 승` : '판정 준비 중'}
           </h1>
           <p className={`ts-body-15-r ${styles.sub}`} role={judged ? undefined : 'status'}>
             {judged
@@ -108,7 +127,13 @@ function ResultView({ debate, result }: { debate: DebateDetail; result: Result }
       </section>
 
       <div className={styles.cards}>
-        <PredictionCard debate={debate} result={result} retrying={retryJudge.isPending} onRetryJudge={onRetryJudge} />
+        <PredictionCard
+          debate={debate}
+          result={result}
+          retrying={retryJudge.isPending}
+          canRetry={!judgeLimited}
+          onRetryJudge={onRetryJudge}
+        />
         <AudienceCard debate={debate} result={result} />
       </div>
 
@@ -158,92 +183,6 @@ function ResultView({ debate, result }: { debate: DebateDetail; result: Result }
         humanAgreement={result.metrics.human_agreement}
       />
       <ReportPopup open={reportOpen} submitting={report.isPending} onClose={() => setReportOpen(false)} onSubmit={onReport} />
-    </div>
-  )
-}
-
-function PredictionCard({
-  debate,
-  result,
-  retrying,
-  onRetryJudge,
-}: {
-  debate: DebateDetail
-  result: Result
-  retrying: boolean
-  onRetryJudge: () => void
-}) {
-  const mine = result.my_prediction
-  if (result.judge_status === 'failed') {
-    return (
-      <div className={`${styles.card} ${styles.error}`}>
-        <p className={`${styles.cardTitle} ${styles.errorText}`}>
-          <WarningCircle size={24} weight="fill" aria-hidden="true" /> 판정을 아직 못 냈어요
-        </p>
-        <p className="ts-body-15-m">판정이 나오면 맞혔는지 알려 드려요</p>
-        <Button variant="secondary" size="m" className={styles.retryJudge} icon={<ArrowClockwise size={20} />} softDisabled={retrying} onClick={onRetryJudge}>
-          {retrying ? '요청하는 중…' : '판정 다시 요청'}
-        </Button>
-      </div>
-    )
-  }
-  if (result.judge_status !== 'done' || result.winner === null) {
-    return (
-      <div className={styles.card}>
-        <p className={styles.cardTitle}>판정을 기다리는 중</p>
-        <p className={`ts-body-14-r ${styles.sub}`}>{mine ? `내 예측  ${mine} ${topicOf(debate, mine)}` : '이번엔 예측 없이 봤어요'}</p>
-      </div>
-    )
-  }
-  if (!mine) {
-    return (
-      <div className={styles.card}>
-        <p className={styles.cardTitle}>다음엔 예측해 보세요</p>
-        <p className={`ts-body-14-r ${styles.sub}`}>이번엔 예측 없이 봤어요</p>
-      </div>
-    )
-  }
-  const hit = mine === result.winner
-  return (
-    <div className={`${styles.card} ${hit ? styles.success : styles.error}`}>
-      <p className={`${styles.cardTitle} ${hit ? styles.successText : styles.errorText}`}>
-        {hit ? <CheckCircle size={24} weight="fill" aria-hidden="true" /> : <XCircle size={24} weight="fill" aria-hidden="true" />}
-        {hit ? '맞혔어요!' : '아쉽게 빗나갔어요'}
-      </p>
-      <p className="ts-body-15-m">
-        내 예측  {mine} {topicOf(debate, mine)}
-      </p>
-    </div>
-  )
-}
-
-function AudienceCard({ debate, result }: { debate: DebateDetail; result: Result }) {
-  const { count, a_ratio, b_ratio } = result.audience
-  return (
-    <div className={styles.card}>
-      <p className={styles.cardTitle}>
-        <Users size={24} aria-hidden="true" /> 관객 {count}명 참여
-      </p>
-      <p className={`ts-body-14-r ${styles.sub}`}>
-        {a_ratio === null || b_ratio === null
-          ? '5명부터 관객 판정도 보여요'
-          : `관객 예측  A ${debate.topic_a} ${percent(a_ratio)} · B ${debate.topic_b} ${percent(b_ratio)}`}
-      </p>
-    </div>
-  )
-}
-
-function Meter({ label, value, tone }: { label: string; value: number | null; tone: 'primary' | 'muted' }) {
-  const width = `${Math.round((value ?? 0) * 100)}%`
-  return (
-    <div className={styles.meter}>
-      <div className={styles.meterLabel}>
-        <span className={`ts-body-15-r ${styles.sub}`}>{label}</span>
-        <span className="ts-headline-24">{percent(value)}</span>
-      </div>
-      <div className={styles.track} aria-hidden="true">
-        <div className={tone === 'primary' ? styles.valuePrimary : styles.valueMuted} style={{ width }} />
-      </div>
     </div>
   )
 }
