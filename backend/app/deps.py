@@ -3,12 +3,14 @@
 import uuid
 from typing import Annotated
 
-from fastapi import Depends, Header, Path
+from fastapi import Depends, Header, Path, Request
 from sqlalchemy.orm import Session
 
+from app.config import get_settings
 from app.db import get_db
 from app.errors import api_error
 from app.models import Debate
+from app.services.throttle import client_hash
 
 DB = Annotated[Session, Depends(get_db)]
 DebateId = Annotated[str, Path(min_length=1, max_length=16)]
@@ -23,6 +25,20 @@ def browser_id(x_browser_id: Annotated[str | None, Header()] = None) -> str:
 
 
 BrowserId = Annotated[str, Depends(browser_id)]
+
+
+def client_key(request: Request) -> str:
+    """요청 수 제한용 접속자 키(IP 해시). IP 원문은 어디에도 저장하지 않는다."""
+    settings = get_settings()
+    ip = request.client.host if request.client else "unknown"
+    if settings.trust_proxy:
+        forwarded = request.headers.get("x-forwarded-for", "")
+        if forwarded:
+            ip = forwarded.split(",")[0].strip()
+    return client_hash(ip, settings.session_secret)
+
+
+ClientKey = Annotated[str, Depends(client_key)]
 
 
 def load_visible_debate(db: Session, debate_id: str) -> Debate:

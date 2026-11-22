@@ -34,6 +34,8 @@ class Settings(BaseSettings):
     kakao_client_secret: str = ""
 
     cron_secret: str = ""
+    # 앞단 프록시(Vercel)가 붙여 주는 X-Forwarded-For를 믿을지. 직접 노출된 서버에서는 위조될 수 있어 기본 False.
+    trust_proxy: bool = False
 
     # Q-001 · Q-002 임시값 (사용자 결정 전)
     daily_user_limit: int = 3

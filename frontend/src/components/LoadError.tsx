@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { ApiError } from '../api/client'
 import { StateBlock } from './StateBlock'
-import { NotFoundPage } from '../pages/NotFoundPage'
+import { NotFoundState } from './NotFoundState'
 
 type Props = { error: unknown; onRetry: () => void }
 
@@ -9,7 +9,7 @@ type Props = { error: unknown; onRetry: () => void }
  * 없는 토론(404) → COM_01_003, 인터넷 끊김 → COM_01_002, 그 밖 → 다시 시도. */
 export function LoadError({ error, onRetry }: Props) {
   const navigate = useNavigate()
-  if (error instanceof ApiError && error.status === 404) return <NotFoundPage />
+  if (error instanceof ApiError && error.status === 404) return <NotFoundState />
   if (error instanceof ApiError && error.isNetwork) {
     return (
       <StateBlock

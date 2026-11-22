@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { CaretLeft, Copy } from '@phosphor-icons/react'
-import type { Side } from '../api/types'
+import { ApiError } from '../api/client'
+import { SIDES, type Side } from '../api/types'
 import { Button } from '../components/Button'
 import { LoadError } from '../components/LoadError'
 import { Skeleton } from '../components/Skeleton'
@@ -55,11 +56,21 @@ export function PredictPage() {
     }
     if (!choice) return
     try {
-      const saved = await predict.mutateAsync(choice)
-      setViewChoice(id, saved ?? choice)
+      const saved = (await predict.mutateAsync(choice)) ?? choice
+      // 다른 탭 등에서 이미 예측했다면 서버는 처음 값을 돌려준다 → 그 값으로 이어 간다.
+      if (saved !== choice) toast.show(`이미 ${topicOf(debate, saved)}에 예측해서 그 값으로 이어서 볼게요`)
+      setViewChoice(id, saved)
       navigate(stagePath)
-    } catch {
-      toast.show('예측을 저장하지 못했어요. 다시 눌러 주세요.')
+    } catch (e) {
+      if (e instanceof ApiError && (e.status === 404 || e.status === 410)) {
+        void detail.refetch() // 그사이 지워지거나 가려졌다 → 해당 안내 화면으로
+        return
+      }
+      toast.show(
+        e instanceof ApiError && e.status === 429
+          ? '잠시 뒤에 다시 시도해 주세요.'
+          : '예측을 저장하지 못했어요. 다시 눌러 주세요.',
+      )
     }
   }
 
@@ -100,7 +111,7 @@ export function PredictPage() {
           </p>
         </div>
         <div className={styles.cards} role="radiogroup" aria-labelledby="predict-q">
-          {(['A', 'B'] as const).map((side) => (
+          {SIDES.map((side) => (
             <PredictionCard
               key={side}
               side={side}
@@ -139,7 +150,7 @@ export function PredictPage() {
         </div>
         <Button
           className={styles.cta}
-          softDisabled={!selected || predict.isPending}
+          softDisabled={!selected || predict.isPending || mine.isPending}
           aria-describedby={!selected ? 'cta-hint' : undefined}
           onClick={goWatch}
         >

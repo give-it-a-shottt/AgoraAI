@@ -1,5 +1,7 @@
 /** 서버 응답 타입 — Admin_Docs/overview/api-list.md와 같아야 한다. 승자(winner)는 Result에만 있다. */
-export type Side = 'A' | 'B'
+export const SIDES = ['A', 'B'] as const
+export type Side = (typeof SIDES)[number]
+export const isSide = (v: unknown): v is Side => v === 'A' || v === 'B'
 export type DebateStatus = 'generating' | 'paused' | 'done'
 export type CharacterKey = 'cat' | 'penguin'
 

@@ -9,6 +9,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -96,31 +97,43 @@ class Utterance(Base):
 
 class Prediction(Base):
     __tablename__ = "predictions"
-    __table_args__ = (UniqueConstraint("debate_id", "browser_id", name="uq_prediction_browser"),)
+    __table_args__ = (
+        UniqueConstraint("debate_id", "browser_id", name="uq_prediction_browser"),
+        Index("ix_predictions_client_recent", "client_hash", "created_at"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     debate_id: Mapped[str] = mapped_column(ForeignKey("debates.id", ondelete="CASCADE"))
     browser_id: Mapped[str] = mapped_column(String(36))
     pick: Mapped[str] = mapped_column(String(1))
+    client_hash: Mapped[str | None] = mapped_column(String(32), nullable=True)  # 요청 수 제한용(IP 해시)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
 class Empathy(Base):
     __tablename__ = "empathies"
-    __table_args__ = (UniqueConstraint("utterance_id", "browser_id", name="uq_empathy_browser"),)
+    __table_args__ = (
+        UniqueConstraint("utterance_id", "browser_id", name="uq_empathy_browser"),
+        Index("ix_empathies_client_recent", "client_hash", "created_at"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     utterance_id: Mapped[int] = mapped_column(ForeignKey("utterances.id", ondelete="CASCADE"))
     browser_id: Mapped[str] = mapped_column(String(36))
+    client_hash: Mapped[str | None] = mapped_column(String(32), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
 class Report(Base):
     __tablename__ = "reports"
-    __table_args__ = (UniqueConstraint("debate_id", "browser_id", name="uq_report_browser"),)
+    __table_args__ = (
+        UniqueConstraint("debate_id", "browser_id", name="uq_report_browser"),
+        Index("ix_reports_client_recent", "client_hash", "created_at"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     debate_id: Mapped[str] = mapped_column(ForeignKey("debates.id", ondelete="CASCADE"))
     browser_id: Mapped[str] = mapped_column(String(36))
     reason: Mapped[str] = mapped_column(String(32))
+    client_hash: Mapped[str | None] = mapped_column(String(32), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)

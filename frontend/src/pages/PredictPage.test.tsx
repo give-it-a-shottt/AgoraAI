@@ -92,3 +92,65 @@ describe('PredictPage (DEB_01_001)', () => {
     expect(await screen.findByRole('heading', { name: '없는 페이지예요' })).toBeInTheDocument()
   })
 })
+
+describe('PredictPage 실패 경로', () => {
+  it('예측 저장이 실패하면 토스트를 띄우고 머문다', async () => {
+    mockApi((url, init) => {
+      if (url.pathname === '/api/debates/d1') return { body: detail() }
+      if (url.pathname === '/api/debates/d1/predictions/me') return { body: { pick: null } }
+      if (init.method === 'POST') return { status: 500, body: { detail: { code: 'internal', message: 'x' } } }
+    })
+    const { router } = renderRoute(
+      [{ path: '/debates/:id', element: <ToastProvider><PredictPage /></ToastProvider> }],
+      '/debates/d1',
+    )
+    await userEvent.click(await screen.findByRole('radio', { name: /A\s*평생 짜장/ }))
+    await userEvent.click(screen.getByRole('button', { name: '평생 짜장으로 예측하고 보기' }))
+    expect(await screen.findByText('예측을 저장하지 못했어요. 다시 눌러 주세요.')).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/debates/d1')
+  })
+
+  it('서버가 다른 처음 예측을 돌려주면 그 값으로 이어 간다고 알린다', async () => {
+    mockApi((url, init) => {
+      if (url.pathname === '/api/debates/d1') return { body: detail() }
+      if (url.pathname === '/api/debates/d1/predictions/me') return { body: { pick: null } }
+      if (init.method === 'POST') return { body: { pick: 'A' } }
+    })
+    renderRoute(
+      [
+        { path: '/debates/:id', element: <ToastProvider><PredictPage /></ToastProvider> },
+        { path: '/debates/:id/stage', element: <ToastProvider><div>stage</div></ToastProvider> },
+      ],
+      '/debates/d1',
+    )
+    await userEvent.click(await screen.findByRole('radio', { name: /B\s*평생 짬뽕/ }))
+    await userEvent.click(screen.getByRole('button', { name: '평생 짬뽕으로 예측하고 보기' }))
+    expect(getViewChoice('d1')).toBe('A')
+  })
+
+  it('인터넷이 끊기면 COM_01_002 안내', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new TypeError('Failed to fetch'))))
+    renderRoute([{ path: '/debates/:id', element: <ToastProvider><PredictPage /></ToastProvider> }], '/debates/d1')
+    expect(await screen.findByRole('heading', { name: '인터넷 연결이 끊겼어요' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '다시 시도' })).toBeInTheDocument()
+  })
+
+  it('복사가 막히면 대신 안내 토스트', async () => {
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText: vi.fn().mockRejectedValue(new Error('no')) } })
+    document.execCommand = vi.fn(() => false)
+    setup()
+    await userEvent.click(await screen.findByRole('button', { name: '링크 복사' }))
+    expect(await screen.findByText('복사하지 못했어요. 주소창의 링크를 써 주세요.')).toBeInTheDocument()
+  })
+
+  it('내 예측을 불러오는 동안은 버튼이 비활성', async () => {
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) =>
+      String(input).endsWith('/me')
+        ? new Promise(() => {})
+        : Promise.resolve(new Response(JSON.stringify(detail()), { status: 200 })),
+    ))
+    renderRoute([{ path: '/debates/:id', element: <ToastProvider><PredictPage /></ToastProvider> }], '/debates/d1')
+    await userEvent.click(await screen.findByRole('radio', { name: /A\s*평생 짜장/ }))
+    expect(screen.getByRole('button', { name: '평생 짜장으로 예측하고 보기' })).toHaveAttribute('aria-disabled', 'true')
+  })
+})

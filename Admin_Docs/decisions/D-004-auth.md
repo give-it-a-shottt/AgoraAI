@@ -9,7 +9,7 @@
 ## 개발자 상세
 - 로그인 후 서버가 서명한 세션 쿠키(HttpOnly, SameSite=Lax)에 사용자 번호만 담는다. 비밀키는 환경변수 SESSION_SECRET.
 - 토큰을 localStorage에 두지 않는다(XSS로 빼가기 어렵게).
-- 로그인 없는 행동(예측·공감·신고)은 브라우저 무작위 번호(browser_id)로 한 번만 하게 막는다.
+- 로그인 없는 행동(예측·공감·신고)은 브라우저 무작위 번호(browser_id)로 한 번만 하게 막는다. browser_id는 위조할 수 있어서, 양은 접속 주소 해시 기준 요청 수 제한으로 묶는다(10분 예측 30·공감 60, 1시간 신고 10). 배포 환경은 TRUST_PROXY=true로 Vercel이 붙인 X-Forwarded-For를 쓴다.
 - 로컬에 OAuth 키가 없으면 개발용 로그인(APP_ENV가 production이 아닐 때만)을 쓴다.
 - 대안: 게스트 생성 허용 → 남용·비용 위험. 사용자 선택으로 기각.
 

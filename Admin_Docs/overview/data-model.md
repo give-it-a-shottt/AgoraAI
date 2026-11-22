@@ -12,13 +12,14 @@
 | users | id, provider(google/kakao/dev), provider_user_id, nickname, created_at | UNIQUE(provider, provider_user_id) |
 | debates | id(문자열 짧은 ID), topic_a, topic_b, normalized_key, cat_side(A/B), status(generating/paused/done), lock_until, fail_count, retry_count, paused_at, winner(A/B, 결과 API에서만 노출), judge_reason, judge_status(pending/done/failed), rebut_rate, agree_rate, is_hidden, today_date, is_seed, creator_id→users, created_at | INDEX(normalized_key), INDEX(today_date), INDEX(created_at), INDEX(creator_id) |
 | utterances | id, debate_id→debates, seq(1~6), round(1~3), side(A/B), text, caption, stance_label(rebut/agree/neutral, 심판이 붙임), created_at | UNIQUE(debate_id, seq) |
-| predictions | id, debate_id, browser_id, pick(A/B), created_at | UNIQUE(debate_id, browser_id) |
-| empathies | id, utterance_id, browser_id, created_at | UNIQUE(utterance_id, browser_id) |
-| reports | id, debate_id, browser_id, reason, created_at | UNIQUE(debate_id, browser_id) |
+| predictions | id, debate_id, browser_id, pick(A/B), client_hash, created_at | UNIQUE(debate_id, browser_id), INDEX(client_hash, created_at) |
+| empathies | id, utterance_id, browser_id, client_hash, created_at | UNIQUE(utterance_id, browser_id), INDEX(client_hash, created_at) |
+| reports | id, debate_id, browser_id, reason, client_hash, created_at | UNIQUE(debate_id, browser_id), INDEX(client_hash, created_at) |
 - 발언 순서: 라운드마다 A 편 → B 편. seq = (round-1)*2 + (A면 1, B면 2).
 - 개인 하루 한도: debates에서 creator_id·오늘 생성 건수를 센다(검수 거절·실패는 토론이 안 만들어지므로 자동으로 차감 없음).
 - 기본값: status·judge_status·fail_count·is_hidden·is_seed·nickname은 DB 기본값(server_default)도 있어 ORM 밖 INSERT도 안전.
 - 예측·공감·신고의 토론/발언 번호 칸은 UNIQUE의 앞 칸이라 별도 인덱스를 두지 않는다(UNIQUE가 대신함).
+- client_hash: 접속 주소(IP)에 서버 비밀값을 섞은 해시 앞 32자. 요청 수 제한에만 쓰고 IP 원문은 저장하지 않는다.
 - 숨김: 신고 3건이면 is_hidden=true. 되돌리기는 DB에서 is_hidden=false로 바꾼다(관리 화면 없음).
 
 최종 수정: 2026-11-22 · 관련: D-003, F-002, F-005

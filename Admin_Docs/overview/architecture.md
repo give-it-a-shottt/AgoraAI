@@ -10,11 +10,12 @@
 ```
 frontend/ (Vite React TS)
   src/app/        라우터·queryClient.ts(재시도 정책)·레이아웃(GNB·Footer)
-  src/pages/      화면 단위(HomePage, CreatePage, PredictPage, StagePage, ResultPage, NotFoundPage …)
-  src/components/ 디자인 시스템 컴포넌트(Button, Badge, TabLine, CaptionBox, StepperBar, PredictionCard, StateBlock, Popup …)
-  src/features/   기능별 훅·로직(debate, create, auth)
+  src/pages/      화면 단위(HomePage, PredictPage, StagePage, ResultPage, CreatePage, NotFoundPage, LegalPage, RouteErrorPage)
+  src/components/ 여러 화면이 쓰는 디자인 시스템 컴포넌트(Button, Badge, TabLine, Pagination, LoadMore, Chip, Skeleton, Character, StateBlock, NotFoundState, LoadError, Toast …)
+  src/features/   기능별 훅·로직·그 기능에서만 쓰는 로컬 컴포넌트(home, debate, predict(PredictionCard·CastCard), stage, result, create, auth)
+  ※ components는 pages·features를 import하지 않는다(의존 방향: pages → features → components → lib/api)
   src/api/        fetch 래퍼(client.ts)와 응답 타입(types.ts)
-  src/lib/        browser_id, 최근 만든 토론 저장 등 브라우저 유틸
+  src/lib/        브라우저 유틸(browserId, recentDebates, viewState(예측·건너뛰기 기억), clipboard, date, korean(조사), useMediaQuery)
   src/styles/     tokens.css(디자인 토큰) · global.css
 backend/ (FastAPI)
   app/main.py     앱 생성, 라우터 등록, CORS
@@ -32,6 +33,7 @@ backend/ (FastAPI)
 - 의존 방향: routers → services → models/providers. 서비스는 라우터를 모른다.
 - DB 세션: 다른 모듈은 `from app import db` 후 `db.SessionLocal()`로만 쓴다(테스트가 바꿔 끼움).
 - 에러: main.py 전역 핸들러가 404·405·500까지 모두 `{"detail":{"code","message"}}`로 맞춘다. 500은 내부 정보를 로그에만 남김.
+- 로그인 없는 쓰기(예측·공감·신고)는 browser_id로 1번 + 접속 주소(IP) 해시 기준 요청 수 제한(services/throttle.py). IP 원문은 저장하지 않는다.
 - 운영 설정 검증: APP_ENV=production인데 SESSION_SECRET(32자 이상)·CRON_SECRET·Postgres DATABASE_URL이 없으면 서버가 뜨지 않는다.
 - 상태 위치: 서버 데이터는 TanStack Query, 화면 안 상태(무대 진행·타자 효과)는 컴포넌트 로컬, 브라우저 기억(browser_id·예측·방금 만든 토론)은 localStorage.
 - 배포: Vercel 하나에 프론트 정적 파일 + 파이썬 함수(api/index.py가 backend 앱을 감쌈). vercel.json이 /api/*, /share/*를 함수로, 나머지를 index.html로 보낸다.
