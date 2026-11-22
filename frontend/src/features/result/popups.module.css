@@ -1,0 +1,16 @@
+.item { display: flex; flex-direction: column; gap: var(--space-1); }
+.sub { color: var(--text-sub); }
+.reasons { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.reason { height: 44px; display: flex; align-items: center; gap: var(--space-3); cursor: pointer; }
+.radio {
+  appearance: none; width: 22px; height: 22px; margin: 0; flex-shrink: 0; border-radius: var(--radius-full);
+  background: var(--bg-default); border: 1.5px solid var(--line-strong);
+}
+.radio:checked { border: 6px solid var(--primary-default); }
+.actions { display: flex; justify-content: flex-end; gap: var(--space-2); }
+.cancel { width: 120px; }
+.submit { width: 160px; }
+@media (max-width: 639px) {
+  .cancel { flex: 1 1 0; width: auto; }
+  .submit { flex: 2 1 0; width: auto; }
+}

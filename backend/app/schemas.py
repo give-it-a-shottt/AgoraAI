@@ -99,7 +99,8 @@ class ResultOut(BaseModel):
     metrics: MetricsOut
 
 
-ReportReason = Literal["hate", "sexual", "violence", "spam", "other"]
+# DEB_01_006 신고 이유: 혐오·차별 / 실존 인물 비방 / 성적인 내용 / 주제와 상관없는 말 / 기타
+ReportReason = Literal["hate", "person", "sexual", "offtopic", "other"]
 
 
 class ReportIn(BaseModel):

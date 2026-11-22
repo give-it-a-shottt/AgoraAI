@@ -13,8 +13,8 @@ export function useWaitElapsed(waiting: boolean) {
       return
     }
     setStart((s) => s ?? Date.now())
-    const tick = window.setInterval(() => setNow(Date.now()), 1000)
-    return () => window.clearInterval(tick)
+    const tick = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(tick)
   }, [waiting])
 
   const reset = useCallback(() => {
@@ -30,8 +30,8 @@ export function useWaitElapsed(waiting: boolean) {
 export function useAutoAdvance(enabled: boolean, delayMs: number, advance: () => void, step: number) {
   useEffect(() => {
     if (!enabled) return
-    const timer = window.setTimeout(advance, delayMs)
-    return () => window.clearTimeout(timer)
+    const timer = setTimeout(advance, delayMs)
+    return () => clearTimeout(timer)
   }, [enabled, delayMs, advance, step])
 }
 

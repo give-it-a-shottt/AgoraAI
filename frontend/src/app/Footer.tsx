@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom'
 import styles from './Footer.module.css'
 
-const GITHUB_URL = import.meta.env.VITE_GITHUB_URL as string | undefined
+// 사용자가 알려 준 저장소(Q-009). 배포 환경변수 VITE_GITHUB_URL로 바꿀 수 있다.
+const GITHUB_URL = (import.meta.env.VITE_GITHUB_URL as string | undefined) || 'https://github.com/give-it-a-shottt/AgoraAI'
 
 /** MyDesign 21 Footer PC Minimal · MO Simple (Light) — 사업자 정보 없음(비상업) */
 export function Footer() {

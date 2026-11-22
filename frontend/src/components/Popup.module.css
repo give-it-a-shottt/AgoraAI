@@ -1,0 +1,28 @@
+.dim {
+  position: fixed; inset: 0; z-index: 90; background: var(--bg-dim);
+  display: flex; align-items: center; justify-content: center; padding: var(--space-5);
+}
+.panel {
+  width: 100%; max-width: 480px; max-height: calc(100vh - 48px); overflow-y: auto;
+  background: var(--bg-default); border-radius: var(--radius-card); box-shadow: 0 4px 16px rgb(33 33 33 / 0.12);
+}
+.handle { display: none; }
+.header { display: flex; align-items: center; justify-content: space-between; padding: var(--space-5) var(--space-4) 0 28px; }
+.close { width: 40px; height: 40px; border-radius: var(--radius-full); display: inline-flex; align-items: center; justify-content: center; color: var(--icon-main); }
+.body { padding: var(--space-4) 28px 28px; display: flex; flex-direction: column; gap: var(--space-5); }
+
+/* MO Bottom Sheet: 아래에서 올라오고 위쪽만 둥글게(radius/sheet 24) */
+@media (max-width: 639px) {
+  .dim { align-items: flex-end; padding: 0; }
+  .panel {
+    max-width: none; border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+    padding-bottom: env(safe-area-inset-bottom);
+    animation: sheetIn 300ms var(--ease-out) both;
+  }
+  .handle { display: block; width: 40px; height: 4px; margin: var(--space-2) auto 0; border-radius: 2px; background: var(--line-regular); }
+  .header { padding: var(--space-2) var(--space-2) 0 var(--space-5); height: 56px; }
+  .body { padding: var(--space-2) var(--space-5) var(--space-6); }
+}
+@keyframes sheetIn { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .panel { animation: fade 200ms linear both; } }

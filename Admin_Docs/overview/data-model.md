@@ -10,7 +10,7 @@
 | 테이블 | 주요 칸 | 제약 |
 |---|---|---|
 | users | id, provider(google/kakao/dev), provider_user_id, nickname, created_at | UNIQUE(provider, provider_user_id) |
-| debates | id(문자열 짧은 ID), topic_a, topic_b, normalized_key, cat_side(A/B), status(generating/paused/done), lock_until, fail_count, retry_count, paused_at, winner(A/B, 결과 API에서만 노출), judge_reason, judge_status(pending/done/failed), rebut_rate, agree_rate, is_hidden, today_date, is_seed, creator_id→users, created_at | INDEX(normalized_key), INDEX(today_date), INDEX(created_at), INDEX(creator_id) |
+| debates | id(문자열 짧은 ID), topic_a, topic_b, normalized_key, cat_side(A/B), status(generating/paused/done), lock_until, fail_count, retry_count, paused_at, winner(A/B, 결과 API에서만 노출), judge_reason, judge_status(pending/done/failed), judge_attempts, rebut_rate, agree_rate, is_hidden, today_date, is_seed, creator_id→users, created_at | INDEX(normalized_key), INDEX(today_date), INDEX(created_at), INDEX(creator_id) |
 | utterances | id, debate_id→debates, seq(1~6), round(1~3), side(A/B), text, caption, stance_label(rebut/agree/neutral, 심판이 붙임), created_at | UNIQUE(debate_id, seq) |
 | predictions | id, debate_id, browser_id, pick(A/B), client_hash, created_at | UNIQUE(debate_id, browser_id), INDEX(client_hash, created_at) |
 | empathies | id, utterance_id, browser_id, client_hash, created_at | UNIQUE(utterance_id, browser_id), INDEX(client_hash, created_at) |

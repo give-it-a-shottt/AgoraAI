@@ -25,9 +25,9 @@
 | POST /api/debates/{id}/predictions | - | `{pick: "A"\|"B"}` | `{pick}` (이미 했으면 처음 값) | 400 `browser_id_required`, 404, 410 `hidden`, 422, 429 `too_many_requests`(+retry_after, 접속자당 10분 30개) |
 | GET /api/debates/{id}/predictions/me | - | - | `{pick: "A"\|"B"\|null}` | 400 `browser_id_required`, 404, 410 `hidden` |
 | POST /api/utterances/{id}/empathy | - | - | `{count, empathized: true}` (이미 했으면 그대로) | 400 `browser_id_required`, 404, 410 `hidden`, 422, 429 `too_many_requests`(접속자당 10분 60개) |
-| GET /api/debates/{id}/result | - | - | Result | 404, 409 `not_finished` |
-| POST /api/debates/{id}/judge/retry | - | - | Result | 404, 409 |
-| POST /api/debates/{id}/reports | - | `{reason}` | `{reported: true, hidden}` | 400, 404 |
+| GET /api/debates/{id}/result | - | - | Result — 승자·이유·지표는 judge_status=done일 때만. X-Browser-Id가 없거나 틀려도 볼 수 있음(내 예측만 null) | 404, 409 `not_finished`, 410 `hidden` |
+| POST /api/debates/{id}/judge/retry | - | - | Result(응답 안에서 판정을 다시 시도) | 400, 404, 410, 409 `not_finished`·`not_failed`·`judge_limit`(토론당 판정 시도 4번) |
+| POST /api/debates/{id}/reports | - | `{reason: "hate"\|"person"\|"sexual"\|"offtopic"\|"other"}` | `{reported: true, hidden}` (브라우저당 1번, 3건이면 hidden) | 400, 404, 410, 422, 429 `too_many_requests`(접속자당 1시간 10건) |
 | GET /api/me/quota | 필요 | - | `{remaining, limit, reset_at}` | 401 |
 | POST /api/debates | 필요 | `{topic_a, topic_b}` (각 2~30자) | 201 `{id}` | 401, 422 `topic_rejected`(+reason, suggestions), 429 `user_limit`(+reset_at), 503 `global_closed`, 502 `check_failed` |
 | GET /api/auth/me | - | - | `{user: {id, nickname} \| null}` | - |

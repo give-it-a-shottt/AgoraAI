@@ -27,6 +27,7 @@ from app.providers.base import (
     UtteranceRequest,
     UtteranceResult,
 )
+from app.services import judging
 from app.services.moderation import OutputRejected, check_output
 from app.services.normalize import normalized_key
 from app.timeutil import utcnow
@@ -233,7 +234,10 @@ def _run_steps(debate_id: str) -> None:
     fails_in_row = 0
     for _ in range(TOTAL_UTTERANCES + MAX_FAILS + 1):
         outcome = run_next_step(debate_id)
-        if outcome in ("finished", "busy", "stopped"):
+        if outcome == "finished":
+            judging.judge_debate(debate_id)  # 6발언이 모이면 바로 심판 판정(F-005)
+            return
+        if outcome in ("busy", "stopped"):
             return
         if outcome == "failed":
             if not _still_generating(debate_id):

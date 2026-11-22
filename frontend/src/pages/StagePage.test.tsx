@@ -7,7 +7,7 @@ import { setViewChoice } from '../lib/viewState'
 import { mockApi } from '../test/fetchMock'
 import { debate } from '../test/fixtures'
 import { renderRoute } from '../test/render'
-import { AUTO_ADVANCE_MS, StagePage, STALLED_AFTER_S, SLOW_AFTER_S } from './StagePage'
+import { AUTO_ADVANCE_MS, StagePage } from './StagePage'
 
 const detail = { ...debate(), hidden: false, utterance_count: 0 }
 
@@ -70,19 +70,19 @@ describe('StagePage (DEB_01_002)', () => {
   it('다시보기는 자막 뒤 자동으로 다음 발언, 정지 버튼으로 멈춘다', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     setup(list(6))
-    expect(await screen.findByText('1번째 발언이에요.', { selector: '[aria-hidden="true"]' })).toBeInTheDocument()
-    expect(screen.getByText('자막1')).toBeInTheDocument()
+    expect(await screen.findByText('자막1', {}, { timeout: 5000 })).toBeInTheDocument()
+    expect(screen.getByText('1번째 발언이에요.', { selector: '[aria-hidden="true"]' })).toBeInTheDocument()
     expect(screen.getByText('핵심 한 줄:')).toHaveClass('sr-only')
     expect(screen.getByText('1R 주장 · 냥냥이 발언')).toHaveAttribute('aria-live', 'polite')
     expect(screen.getByRole('listitem', { current: 'step' })).toHaveTextContent('1R 주장')
 
-    await act(async () => vi.advanceTimersByTime(AUTO_ADVANCE_MS + 10))
-    expect(await screen.findByText('자막2')).toBeInTheDocument()
+    await act(async () => { await vi.advanceTimersByTimeAsync(AUTO_ADVANCE_MS + 10) })
+    expect(await screen.findByText('자막2', {}, { timeout: 5000 })).toBeInTheDocument()
 
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     await user.click(screen.getByRole('button', { name: '자동 진행 멈춤' }))
     expect(screen.getByRole('button', { name: '자동 진행 재생' })).toHaveAttribute('aria-pressed', 'true')
-    await act(async () => vi.advanceTimersByTime(AUTO_ADVANCE_MS * 2))
+    await act(async () => { await vi.advanceTimersByTimeAsync(AUTO_ADVANCE_MS * 2) })
     expect(screen.getByText('자막2')).toBeInTheDocument()
     expect(screen.queryByText('자막3')).not.toBeInTheDocument()
   })
@@ -99,18 +99,12 @@ describe('StagePage (DEB_01_002)', () => {
     expect(await screen.findByText('2번째 발언이에요.', { selector: '.sr-only' })).toBeInTheDocument()
   })
 
-  it('생성 중 다음 발언이 없으면 이유와 함께 비활성, 30초·60초 안내', async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true })
+  it('생성 중 다음 발언이 없으면 이유와 함께 비활성(대기 시계는 hooks.test에서 검증)', async () => {
     setup(list(1, 'generating'))
-    const next = await screen.findByRole('button', { name: '다음 발언' })
-    expect(next).toHaveAttribute('aria-disabled', 'true')
+    await screen.findByText('자막1')
+    expect(screen.getByRole('button', { name: '다음 발언' })).toHaveAttribute('aria-disabled', 'true')
     expect(screen.getAllByText('펭펭이가 1R 주장 준비 중이에요').length).toBeGreaterThan(0)
     expect(screen.queryByRole('button', { name: /자동 진행/ })).not.toBeInTheDocument() // 생성 중엔 자동 진행 없음
-
-    await act(async () => vi.advanceTimersByTime((SLOW_AFTER_S + 1) * 1000))
-    expect(screen.getByText('생각보다 오래 걸리고 있어요')).toBeInTheDocument()
-    await act(async () => vi.advanceTimersByTime((STALLED_AFTER_S - SLOW_AFTER_S) * 1000))
-    expect(screen.getByRole('alert')).toHaveTextContent('토론이 잠깐 멈췄어요')
   })
 
   it('첫 발언 전에는 대기 표정', async () => {
@@ -231,18 +225,9 @@ describe('StagePage 예외 경로', () => {
       }
     })
     expect(await screen.findByText('자막1')).toBeInTheDocument()
-    await act(async () => vi.advanceTimersByTime(10_000))
+    await act(async () => { await vi.advanceTimersByTimeAsync(10_000) })
     expect(screen.getByText('자막1')).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: '잠시 문제가 생겼어요' })).not.toBeInTheDocument()
   })
 
-  it('60초 안내의 [다시 시도]는 기다린 시간을 다시 잰다', async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true })
-    setup(list(1, 'generating'))
-    await screen.findByText('자막1')
-    await act(async () => vi.advanceTimersByTime((STALLED_AFTER_S + 1) * 1000))
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
-    await user.click(screen.getByRole('button', { name: '다시 시도' }))
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-  })
 })

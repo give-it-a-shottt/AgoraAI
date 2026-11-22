@@ -61,6 +61,7 @@ class Debate(Base):
     judge_status: Mapped[str] = mapped_column(
         String(16), default="pending", server_default="pending"
     )  # pending|done|failed
+    judge_attempts: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
     rebut_rate: Mapped[float | None] = mapped_column(Float, nullable=True)
     agree_rate: Mapped[float | None] = mapped_column(Float, nullable=True)
 
