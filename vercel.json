@@ -14,7 +14,7 @@
   "crons": [
     {
       "path": "/api/cron/today",
-      "schedule": "0 22 * * *"
+      "schedule": "0 3 * * *"
     }
   ],
   "rewrites": [
