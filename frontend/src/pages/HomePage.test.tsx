@@ -77,6 +77,12 @@ describe('HomePage (HOM_01_001)', () => {
     expect(screen.queryByRole('button', { name: '홈으로' })).not.toBeInTheDocument()
   })
 
+  it('오늘의 토론이 no_today가 아닌 404면 없는 페이지가 아니라 일반 오류', async () => {
+    mockApi(() => ({ status: 404, body: { detail: { code: 'not_found', message: '없음' } } }))
+    renderPage(<HomePage />)
+    expect(await screen.findByRole('heading', { name: '잠시 문제가 생겼어요' })).toBeInTheDocument()
+  })
+
   it('인터넷이 끊기면 COM_01_002', async () => {
     mockApi(() => {
       throw new TypeError('Failed to fetch')

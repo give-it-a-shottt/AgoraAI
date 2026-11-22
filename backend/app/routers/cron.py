@@ -8,6 +8,7 @@ from fastapi import APIRouter, BackgroundTasks, Header
 from app.config import get_settings
 from app.deps import DB
 from app.errors import api_error
+from app.schemas import TodayCronOut
 from app.services import generation, today
 
 router = APIRouter(prefix="/api/cron", tags=["cron"])
@@ -21,14 +22,14 @@ def _check_secret(authorization: str | None) -> None:
         raise api_error(401, "unauthorized", "권한이 없어요.")
 
 
-@router.get("/today")
+@router.get("/today", response_model=TodayCronOut)
 def run_today(
     db: DB,
     background: BackgroundTasks,
-    authorization: Annotated[str | None, Header(max_length=512)] = None,
-) -> dict:
+    authorization: Annotated[str | None, Header(max_length=512)] = None,  # 비정상적으로 긴 헤더 방어
+) -> TodayCronOut:
     _check_secret(authorization)
     result = today.ensure_today(db)
     if result.created and result.debate is not None:
         background.add_task(generation.run_until_done, result.debate.id)
-    return {"debate_id": result.debate.id if result.debate else None, "source": result.source, "created": result.created}
+    return TodayCronOut(debate_id=result.debate.id if result.debate else None, source=result.source, created=result.created)

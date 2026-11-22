@@ -17,7 +17,7 @@
 | * | pages/NotFoundPage.tsx | COM_01_003 | |
 | (오류) | pages/RouteErrorPage.tsx | - | 화면을 그리다 예상 못 한 오류(라우터 errorElement) |
 | (전역) | features/auth/LoginModal.tsx (Layout의 AuthProvider가 띄움) | COM_01_001 | 로그인 뒤 원래 주소로, 만들기 입력은 탭 저장소에 유지 |
-| (전역) | components/StateBlock + NetworkError | COM_01_002 | 요청 실패 시 각 화면 안에 표시 |
+| (전역) | components/LoadError(StateBlock 사용) | COM_01_002 · COM_01_003 | 화면 데이터 실패 공통 처리: 끊김 → COM_01_002, 없는 토론(404) → COM_01_003, 그 밖 → 다시 시도. 무대는 받은 발언을 두고 기다리는 자리에만 COM_01_002 |
 | (서버) /share/:id | backend share 라우터 | - | OG HTML → /debates/:id |
 
 Figma PC 노드 ID(파일 페이지 "Screens PC"): 홈 19:728 · 홈 빈 22:2020 · 만들기 23:2266 · 확인 중 22:1944 · 거절 22:2107 · 한도 22:2187 · 마감 22:2263 · 확인 실패 22:2326 · 예측 18:565 · 예측 토스트 23:2463 · 무대 17:462 · 멈춤 22:2397 · 가려짐 22:2460 · 결과 18:715 · 판정 실패 23:2345 · 공유 24:2478 · 지표 24:2556 · 신고 24:2625 · 로그인 24:2706 · 네트워크 22:2531 · 404 22:2607

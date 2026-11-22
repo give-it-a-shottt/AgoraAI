@@ -36,7 +36,7 @@
 | GET /api/auth/{google\|kakao}/callback | - | code, state | 302 → next(세션 쿠키 설정) | 실패(state 불일치·동의 취소·제공자 오류)는 302 → `/?login=failed`(화면이 토스트로 안내) |
 | POST /api/auth/dev-login | - | - | `{user}` | 404 (production) |
 | POST /api/auth/logout | - | - | `{ok}` (세션 버전을 올려 이 사용자의 모든 기기 쿠키를 무효로) | - |
-| GET /api/cron/today | `Authorization: Bearer CRON_SECRET`(Vercel Cron) | - | `{debate_id, source, created}` — debate_id는 문자열 또는 null, source는 existing·pool·promoted 또는 null (하루 한 번만 지정, 새로 만들면 생성은 백그라운드) | 401 `unauthorized`, 503 `cron_not_configured`(비밀값 없음) |
+| GET /api/cron/today | `Authorization: Bearer CRON_SECRET`(Vercel Cron) | - | `{debate_id, source, created}` — source: existing(이미 있음)·pool(목록 주제로 새로 만듦, created=true)·promoted(인기 토론을 올림)·in_progress(같은 날 다른 호출이 처리함, debate_id null 가능)·none(고를 것 없음, debate_id null — 같은 날 다시 시도 가능). 생성은 백그라운드 | 401 `unauthorized`, 503 `cron_not_configured`(비밀값 없음) |
 | GET /share/{id} | - | - | OG 메타가 든 HTML → /debates/{id}로 이동 | 404 |
 | GET /api/og/{id}.png | - | - | 1200×630 PNG(승자 없음) | 404 |
 

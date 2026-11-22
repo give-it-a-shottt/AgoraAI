@@ -55,7 +55,8 @@ export function StagePage() {
       debate={detail.data}
       list={utterances.data}
       refetch={() => utterances.refetch()}
-      offline={isNetworkError(utterances.error)}
+      // 실제 오프라인이면 TanStack Query가 요청을 실패시키지 않고 멈춘다(fetchStatus 'paused') — 둘 다 끊김으로 본다(F-008 R2)
+      offline={isNetworkError(utterances.error) || utterances.fetchStatus === 'paused'}
     />
   )
 }
@@ -210,7 +211,7 @@ function Stage({ debate, list, refetch, offline }: StageProps) {
         onBlur={() => setHold(false)}
         aria-label="무대"
       >
-        <div key={current.id} className={styles.speaker}>
+        <div key={`speaker-${current.id}`} className={styles.speaker}>
           <Character character={current.character} size={160} alt={member.name} className={styles.speakerImg} />
           <div className={styles.name}>
             <span className={styles.sideTag}>
@@ -223,7 +224,7 @@ function Stage({ debate, list, refetch, offline }: StageProps) {
         </div>
 
         <TypedText
-          key={current.id}
+          key={`text-${current.id}`}
           text={current.text}
           utteranceId={current.id}
           instant={reduced || revealId === current.id}

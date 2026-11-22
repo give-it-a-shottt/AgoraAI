@@ -46,7 +46,7 @@ def test_cron_creates_today_from_pool_once(client, db):
 
 
 @pytest.mark.usefixtures("cron_secret")
-def test_cron_skips_used_topics_then_promotes_most_predicted(client, db, monkeypatch):
+def test_cron_skips_used_topics(client, db):
     a, b = today.TODAY_TOPICS[0]
     make_debate(db, b, a)  # 순서만 바뀐 같은 주제는 이미 있음
     res = client.get("/api/cron/today", headers=AUTH).json()
@@ -73,5 +73,34 @@ def test_second_call_same_day_never_creates_twice(db):
     first.debate.is_hidden = True  # 오늘 토론이 가려져 current_today가 비어도
     db.commit()
     second = today.ensure_today(db)
-    assert second.created is False and second.debate is None
+    assert second.created is False and second.debate is None and second.source == "in_progress"
     assert db.query(Debate).count() == 1
+
+
+@pytest.mark.usefixtures("cron_secret")
+def test_cron_promotes_over_http_when_pool_is_used(client, db, monkeypatch):
+    monkeypatch.setattr(today, "TODAY_TOPICS", [])
+    popular = make_debate(db, "인기", "주제", predictions=3)
+    res = client.get("/api/cron/today", headers=AUTH).json()
+    assert res == {"debate_id": popular.id, "source": "promoted", "created": False}
+    assert client.get("/api/debates/today").json()["id"] == popular.id
+
+
+@pytest.mark.usefixtures("cron_secret")
+def test_cron_reports_none_and_can_retry_later(client, db, monkeypatch):
+    monkeypatch.setattr(today, "TODAY_TOPICS", [])
+    assert client.get("/api/cron/today", headers=AUTH).json() == {"debate_id": None, "source": "none", "created": False}
+    later = make_debate(db, "나중에 끝난", "토론", predictions=1)  # 자리를 돌려줬으니 같은 날 다시 고를 수 있다
+    assert client.get("/api/cron/today", headers=AUTH).json()["debate_id"] == later.id
+
+
+def test_failed_creation_releases_the_day(db, monkeypatch):
+    def broken(*args, **kwargs):
+        raise RuntimeError("db down")
+
+    monkeypatch.setattr(today.generation, "create_debate", broken)
+    with pytest.raises(RuntimeError):
+        today.ensure_today(db)
+    monkeypatch.undo()
+    retry = today.ensure_today(db)  # 같은 날 다시 부르면 만들어진다
+    assert retry.source == "pool" and retry.created

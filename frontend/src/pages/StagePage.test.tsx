@@ -1,6 +1,7 @@
 import { act, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { onlineManager } from '@tanstack/react-query'
 import type { Utterance, UtteranceList } from '../api/types'
 import { ToastProvider } from '../components/Toast'
 import { setViewChoice } from '../lib/viewState'
@@ -249,5 +250,18 @@ describe('StagePage 예외 경로', () => {
     await userEvent.click(screen.getByRole('button', { name: '다시 시도' }))
     await act(async () => { await vi.advanceTimersByTimeAsync(3_000) })
     expect(screen.queryByText(/인터넷 연결이 끊겼어요/)).not.toBeInTheDocument()
+  })
+
+  it('브라우저가 오프라인이면(요청이 멈춤) 기다리는 자리에 COM_01_002', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    setup(list(1, 'generating'))
+    expect(await screen.findByText('자막1')).toBeInTheDocument()
+    act(() => onlineManager.setOnline(false))
+    try {
+      await act(async () => { await vi.advanceTimersByTimeAsync(3_000) })
+      expect(await screen.findByText(/인터넷 연결이 끊겼어요/)).toBeInTheDocument()
+    } finally {
+      act(() => onlineManager.setOnline(true))
+    }
   })
 })

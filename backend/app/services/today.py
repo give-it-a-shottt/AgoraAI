@@ -5,6 +5,7 @@
 Cron이 재시도로 두 번 와도 하루 한 번만 만들도록 하루 사용량 칸(daily_usage)으로 자리를 잡는다.
 """
 
+import logging
 from dataclasses import dataclass
 from typing import Literal
 
@@ -41,18 +42,25 @@ TODAY_TOPICS: list[tuple[str, str]] = [
 ]
 
 TODAY_SCOPE = "cron:today"
+TODAY_DAILY_LIMIT = 1  # 하루 한 번만 지정
 
-Source = Literal["existing", "pool", "promoted"]
+# existing: 이미 오늘 것 있음 · pool/promoted: 이번 호출이 지정 · in_progress: 같은 날 다른 호출이 처리 중
+# none: 고를 주제도 올릴 토론도 없음(운영자가 주제 목록을 채워야 함)
+Source = Literal["existing", "pool", "promoted", "in_progress", "none"]
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
 class TodayResult:
     debate: Debate | None
-    source: Source | None
+    source: Source
     created: bool  # 새 토론을 만들었으면 생성 작업을 돌려야 한다
 
 
 def current_today(db: Session) -> Debate | None:
+    """오늘(한국 날짜) 날짜로 지정된 토론. 홈의 debate_query.get_today_debate는 "오늘 이전 것 중 가장 최근"까지
+    보여 주지만(Q-010), cron은 오늘 것을 새로 정해야 하는지 판단하므로 오늘 날짜만 본다."""
     return db.scalar(
         select(Debate)
         .where(Debate.today_date == kst_today(), Debate.is_hidden.is_(False))
@@ -84,16 +92,24 @@ def ensure_today(db: Session) -> TodayResult:
     if existing is not None:
         return TodayResult(existing, "existing", False)
     today = kst_today()
-    if usage.reserve(db, TODAY_SCOPE, 1, day=today) is None:
-        # 같은 날 다른 호출이 이미 처리 중이거나 처리함(가려진 토론이었을 수도) — 두 번 만들지 않는다
-        return TodayResult(current_today(db), "existing" if current_today(db) else None, False)
-    topic = _unused_topic(db)
-    if topic is not None:
-        debate = generation.create_debate(db, topic[0], topic[1], today_date=today)
-        return TodayResult(debate, "pool", True)
-    promoted = _most_predicted_unfeatured(db)
-    if promoted is not None:
-        promoted.today_date = today
-        db.commit()
-        return TodayResult(promoted, "promoted", False)
-    return TodayResult(None, None, False)
+    slot = usage.reserve(db, TODAY_SCOPE, TODAY_DAILY_LIMIT, day=today)
+    if slot is None:
+        # 같은 날 다른 호출이 처리 중이거나 이미 처리함(그 토론이 가려졌을 수도) — 두 번 만들지 않는다
+        found = current_today(db)
+        return TodayResult(found, "existing" if found else "in_progress", False)
+    try:
+        topic = _unused_topic(db)
+        if topic is not None:
+            debate = generation.create_debate(db, topic[0], topic[1], today_date=today)
+            return TodayResult(debate, "pool", True)
+        promoted = _most_predicted_unfeatured(db)
+        if promoted is not None:
+            promoted.today_date = today
+            db.commit()
+            return TodayResult(promoted, "promoted", False)
+    except BaseException:
+        usage.release_quietly(db, slot)  # 실패하면 같은 날 다시 부를 수 있게 자리를 돌려준다
+        raise
+    usage.release_quietly(db, slot)  # 고를 것이 없었으면 나중에(토론이 끝난 뒤) 다시 시도할 수 있게
+    logger.warning("오늘의 토론을 정하지 못함: 주제 목록을 다 썼고 올릴 완료 토론도 없음")
+    return TodayResult(None, "none", False)

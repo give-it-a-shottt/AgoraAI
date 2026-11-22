@@ -9,7 +9,8 @@ type Props = { error: unknown; onRetry: () => void; /** 홈 화면 자체에서�
  * 없는 토론(404) → COM_01_003, 인터넷 끊김 → COM_01_002, 그 밖 → 다시 시도. */
 export function LoadError({ error, onRetry, withHome = true }: Props) {
   const navigate = useNavigate()
-  if (error instanceof ApiError && error.status === 404) return <NotFoundState />
+  // 홈 자체의 404(배포 불일치 등)는 "없는 페이지"가 아니라 일반 오류로 보인다
+  if (error instanceof ApiError && error.status === 404 && withHome) return <NotFoundState />
   if (error instanceof ApiError && error.isNetwork) {
     return (
       <StateBlock

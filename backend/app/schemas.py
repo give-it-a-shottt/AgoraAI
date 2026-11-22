@@ -150,3 +150,11 @@ class ProvidersOut(BaseModel):
     google: bool
     kakao: bool
     dev: bool
+
+
+class TodayCronOut(BaseModel):
+    """GET /api/cron/today (F-008). source: existing·pool·promoted·in_progress·none"""
+
+    debate_id: str | None
+    source: str
+    created: bool
