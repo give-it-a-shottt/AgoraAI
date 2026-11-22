@@ -50,5 +50,5 @@ export function useDebateListInfinite(sort: SortKey, enabled = true) {
 }
 
 export function useDebateDetail(id: string) {
-  return useQuery({ queryKey: debateKeys.detail(id), queryFn: () => api<DebateDetail>(`/api/debates/${id}`) })
+  return useQuery({ queryKey: debateKeys.detail(id), queryFn: () => api<DebateDetail>(`/api/debates/${encodeURIComponent(id)}`) })
 }

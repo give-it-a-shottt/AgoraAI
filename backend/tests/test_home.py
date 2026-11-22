@@ -32,6 +32,7 @@ def test_today_404_when_empty(client):
 
 def test_list_popular_and_latest_order(client, db):
     now = utcnow()
+    make_debate(db, "카드", "토론", today_date=kst_today())
     old_popular = make_debate(db, "a1", "b1", predictions=5, created_at=now - timedelta(days=3))
     new_quiet = make_debate(db, "a2", "b2", predictions=1, created_at=now)
     popular = client.get("/api/debates?sort=popular").json()
@@ -51,6 +52,7 @@ def test_list_excludes_hidden_and_featured_today(client, db):
 
 
 def test_list_pagination(client, db):
+    make_debate(db, "카드", "토론", today_date=kst_today())
     for i in range(7):
         make_debate(db, f"a{i}", f"b{i}")
     page2 = client.get("/api/debates?sort=latest&page=2&size=5").json()
@@ -75,3 +77,44 @@ def test_detail_and_hidden(client, db):
     hb = client.get(f"/api/debates/{h.id}").json()
     assert hb["hidden"] is True and hb["utterance_count"] == 0
     assert client.get("/api/debates/nope").json()["detail"]["code"] == "not_found"
+
+
+def test_featured_fallback_is_not_listed_again(client, db):
+    """대체로 뽑힌 카드 토론(어제의 오늘의 토론)도 목록에서 빠진다."""
+    featured = make_debate(db, "어제", "토론", today_date=kst_today() - timedelta(days=1))
+    other = make_debate(db, "다른", "토론")
+    assert client.get("/api/debates/today").json()["id"] == featured.id
+    assert [d["id"] for d in client.get("/api/debates").json()["items"]] == [other.id]
+
+
+def test_only_generating_debates_still_show_on_home(client, db):
+    """완료된 토론이 하나도 없어도 진행 중 토론이 있으면 빈 상태가 아니다(완료 기준 ⑥)."""
+    live = make_debate(db, "생성", "중", status="generating", winner=None)
+    assert client.get("/api/debates/today").json()["id"] == live.id
+
+
+def test_hidden_and_future_today_are_not_featured(client, db):
+    make_debate(db, "가린", "오늘", today_date=kst_today(), hidden=True)
+    make_debate(db, "내일", "토론", today_date=kst_today() + timedelta(days=1))
+    done = make_debate(db, "완료", "토론")
+    assert client.get("/api/debates/today").json()["id"] == done.id
+
+
+def test_page_beyond_range_and_bounds(client, db):
+    make_debate(db, "하나", "뿐")
+    make_debate(db, "카드", "토론", today_date=kst_today())
+    far = client.get("/api/debates?page=999").json()
+    assert far["items"] == [] and far["total_pages"] == 1
+    assert client.get("/api/debates?size=0").status_code == 422
+    assert client.get("/api/debates?page=1001").status_code == 422
+
+
+def test_latest_counts_predictions_per_item(client, db):
+    make_debate(db, "카드", "토론", today_date=kst_today())
+    d = make_debate(db, "예측", "많음", predictions=4)
+    item = client.get("/api/debates?sort=latest").json()["items"][0]
+    assert item["id"] == d.id and item["prediction_count"] == 4
+
+
+def test_detail_id_too_long_is_rejected(client):
+    assert client.get("/api/debates/" + "x" * 40).status_code == 422

@@ -75,3 +75,73 @@ describe('HomePage (HOM_01_001)', () => {
     expect(await screen.findByRole('heading', { name: '토론을 불러오지 못했어요' })).toBeInTheDocument()
   })
 })
+
+describe('HomePage 목록 예외·페이지', () => {
+  const today = () => ({ body: debate() })
+
+  it('목록만 실패하면 목록 자리에 다시 시도', async () => {
+    mockApi((url) => {
+      if (url.pathname === '/api/debates/today') return today()
+      if (url.pathname === '/api/debates') return { status: 500, body: { detail: { code: 'internal', message: 'x' } } }
+    })
+    renderPage(<HomePage />)
+    expect(await screen.findByText('목록을 불러오지 못했어요.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '다시 시도' })).toBeInTheDocument()
+  })
+
+  it('목록이 비면 안내 문구', async () => {
+    mockApi((url) => {
+      if (url.pathname === '/api/debates/today') return today()
+      if (url.pathname === '/api/debates') return { body: list([]) }
+    })
+    renderPage(<HomePage />)
+    expect(await screen.findByText('아직 다른 토론이 없어요.')).toBeInTheDocument()
+  })
+
+  it('로딩 중에는 Skeleton(aria-busy)', async () => {
+    mockApi((url) => {
+      if (url.pathname === '/api/debates/today') return today()
+      return undefined
+    })
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) =>
+      String(input).includes('/today')
+        ? Promise.resolve(new Response(JSON.stringify(debate()), { status: 200 }))
+        : new Promise(() => {}),
+    ))
+    renderPage(<HomePage />)
+    expect(await screen.findByLabelText('토론 목록 불러오는 중')).toHaveAttribute('aria-busy', 'true')
+  })
+
+  it('PC 번호를 누르면 page 파라미터로 요청', async () => {
+    const fetchFn = mockApi((url) => {
+      if (url.pathname === '/api/debates/today') return today()
+      if (url.pathname === '/api/debates') {
+        const page = Number(url.searchParams.get('page'))
+        return { body: list([debate({ id: `p${page}`, topic_a: `주제${page}`, topic_b: '비교' })], page, 3) }
+      }
+    })
+    const { router } = renderPage(<HomePage />)
+    await userEvent.click(await screen.findByRole('button', { name: '2' }))
+    expect(router.state.location.search).toContain('page=2')
+    expect(await screen.findByRole('link', { name: /주제2 vs 비교/ })).toBeInTheDocument()
+    expect(fetchFn.mock.calls.some((c) => String(c[0]).includes('page=2'))).toBe(true)
+  })
+
+  it('MO에서는 더보기로 다음 페이지를 이어 붙인다', async () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: true, media: query, addEventListener: () => {}, removeEventListener: () => {},
+    }))
+    mockApi((url) => {
+      if (url.pathname === '/api/debates/today') return today()
+      if (url.pathname === '/api/debates') {
+        const page = Number(url.searchParams.get('page'))
+        return { body: { items: [debate({ id: `m${page}`, topic_a: `모바일${page}`, topic_b: '비교' })], page, total_pages: 2, total: 2 } }
+      }
+    })
+    renderPage(<HomePage />)
+    await userEvent.click(await screen.findByRole('button', { name: /더보기 \(1 \/ 2\)/ }))
+    expect(await screen.findByRole('link', { name: /모바일2 vs 비교/ })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /모바일1 vs 비교/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /더보기/ })).not.toBeInTheDocument()
+  })
+})

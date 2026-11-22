@@ -15,10 +15,10 @@
 | 메서드 · 경로 | 로그인 | 요청 | 응답(성공) | 에러 |
 |---|---|---|---|---|
 | GET /api/health | - | - | `{ok}` | - |
-| GET /api/debates/today | - | - | DebateSummary | 404 `no_today` |
-| GET /api/debates?sort=popular\|latest&page=1&size=5 | - | - | `{items: DebateSummary[], page, total_pages, total}` | 422 |
+| GET /api/debates/today | - | - | DebateSummary — 고르는 규칙(Q-010): 오늘까지의 최근 오늘의 토론 → 최근 완료 → 최근 토론 | 404 `no_today`(토론이 하나도 없을 때만) |
+| GET /api/debates?sort=popular\|latest&page=1&size=5 | - | - | `{items: DebateSummary[], page, total_pages, total}` — 오늘의 토론(맨 위 카드)은 목록·total에서 뺌. 마지막보다 큰 page는 빈 items | 422(page 1~1000, size 1~20 밖) |
 | GET /api/debates/similar?a=&b= | - | - | `{debate: DebateSummary \| null}` | - |
-| GET /api/debates/{id} | - | - | DebateDetail | 404 `not_found` |
+| GET /api/debates/{id} | - | - | DebateDetail(가려진 토론은 hidden=true, 개수 0) | 404 `not_found`, 422(id 16자 초과) |
 | GET /api/debates/{id}/utterances?after=0 | - | - | `{items: Utterance[], status, total: 6}` | 404 |
 | POST /api/debates/{id}/retry | - | - | `{status}` | 404, 409 `not_paused`, 503 `global_closed` |
 | POST /api/debates/{id}/predictions | - | `{pick: "A"\|"B"}` | `{pick}` (이미 했으면 기존 값) | 400, 404 |
@@ -27,7 +27,6 @@
 | GET /api/debates/{id}/result | - | - | Result | 404, 409 `not_finished` |
 | POST /api/debates/{id}/judge/retry | - | - | Result | 404, 409 |
 | POST /api/debates/{id}/reports | - | `{reason}` | `{reported: true, hidden}` | 400, 404 |
-| GET /api/topics/suggestions | - | - | `{items: [{a, b}]}` | - |
 | GET /api/me/quota | 필요 | - | `{remaining, limit, reset_at}` | 401 |
 | POST /api/debates | 필요 | `{topic_a, topic_b}` (각 2~30자) | 201 `{id}` | 401, 422 `topic_rejected`(+reason, suggestions), 429 `user_limit`(+reset_at), 503 `global_closed`, 502 `check_failed` |
 | GET /api/auth/me | - | - | `{user: {id, nickname} \| null}` | - |
@@ -41,6 +40,8 @@
 | GET /api/og/{id}.png | - | - | 1200×630 PNG(승자 없음) | 404 |
 
 응답 타입
+- 시간: `created_at`은 타임존 없는 UTC 문자열(프론트가 Z를 붙여 읽음), `today_date`는 한국 날짜 YYYY-MM-DD
+- 배지: status가 done이면 "완료", 그 외(generating·paused)는 "진행 중"(Q-010)
 - DebateSummary: `id, topic_a, topic_b, status("generating"|"paused"|"done"), prediction_count, created_at, today_date|null, cast: CastMember[]`
 - CastMember: `character("cat"|"penguin"), side("A"|"B"), name, ai, catchphrase`
 - DebateDetail: DebateSummary + `hidden: bool, utterance_count`
