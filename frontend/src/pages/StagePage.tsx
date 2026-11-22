@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useId, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { CaretLeft, Heart, Pause, Play } from '@phosphor-icons/react'
 import { ApiError } from '../api/client'
@@ -7,16 +7,19 @@ import { Button } from '../components/Button'
 import { Character } from '../components/Character'
 import { LoadError } from '../components/LoadError'
 import { Skeleton } from '../components/Skeleton'
-import { StateBlock } from '../components/StateBlock'
 import { useToast } from '../components/toastContext'
 import { memberOf, titleOf, topicOf } from '../features/debate/cast'
 import { HiddenDebate } from '../features/debate/HiddenDebate'
 import { useDebateDetail } from '../features/debate/queries'
 import { CaptionBox } from '../features/stage/CaptionBox'
+import { useAutoAdvance, useEmpathyOnce, useWaitElapsed } from '../features/stage/hooks'
+import { completedRounds, roundOf, speakerOf } from '../features/stage/order'
+import { PAUSED_TITLE, PausedBlock } from '../features/stage/PausedBlock'
 import { PastUtterances } from '../features/stage/PastUtterances'
-import { useEmpathy, useRetry, useUtterances } from '../features/stage/queries'
+import { useRetry, useUtterances } from '../features/stage/queries'
+import { retryErrorMessage } from '../features/stage/retryMessage'
 import { ROUND_NAMES, StepperBar } from '../features/stage/StepperBar'
-import { useTypewriter } from '../features/stage/useTypewriter'
+import { TypedText } from '../features/stage/TypedText'
 import { withIGa } from '../lib/korean'
 import { useReducedMotion } from '../lib/useReducedMotion'
 import { getViewChoice } from '../lib/viewState'
@@ -26,18 +29,18 @@ export const AUTO_ADVANCE_MS = 2500 // 다시보기: 자막이 뜬 뒤 다음 �
 export const SLOW_AFTER_S = 30 // §8 대기 30초 → "생각보다 오래 걸리고 있어요"
 export const STALLED_AFTER_S = 60 // §8 대기 60초 → Error Inline + [다시 시도]
 
+const isHiddenError = (e: unknown) => e instanceof ApiError && e.code === 'hidden'
+
 /** DEB_01_002 무대 (멈춤 DEB_01_007, 가려짐 DEB_01_008) */
 export function StagePage() {
   const { id = '' } = useParams()
   const detail = useDebateDetail(id)
   const utterances = useUtterances(id, detail.data ? !detail.data.hidden : false)
 
-  if (detail.isError) return <LoadError error={detail.error} onRetry={() => detail.refetch()} />
-  if (detail.data?.hidden) return <HiddenDebate />
-  if (utterances.isError) {
-    if (utterances.error instanceof ApiError && utterances.error.code === 'hidden') return <HiddenDebate />
-    return <LoadError error={utterances.error} onRetry={() => utterances.refetch()} />
-  }
+  // 이미 받은 데이터가 있으면, 폴링 중 잠깐의 실패로 무대를 지우지 않는다(다음 폴링에 맡김). 가려짐(410)만 예외.
+  if (!detail.data && detail.isError) return <LoadError error={detail.error} onRetry={() => detail.refetch()} />
+  if (detail.data?.hidden || isHiddenError(utterances.error)) return <HiddenDebate />
+  if (!utterances.data && utterances.isError) return <LoadError error={utterances.error} onRetry={() => utterances.refetch()} />
   if (!detail.data || !utterances.data) {
     return (
       <div className={styles.page} aria-busy="true">
@@ -46,17 +49,20 @@ export function StagePage() {
       </div>
     )
   }
-  return <Stage debate={detail.data} list={utterances.data} refetch={() => utterances.refetch()} />
+  return (
+    <Stage debate={detail.data} list={utterances.data} refetch={() => utterances.refetch()} />
+  )
 }
 
-type StageProps = { debate: DebateDetail; list: UtteranceList; refetch: () => void }
+type StageProps = { debate: DebateDetail; list: UtteranceList; refetch: () => Promise<unknown> }
 
 function Stage({ debate, list, refetch }: StageProps) {
   const navigate = useNavigate()
   const toast = useToast()
   const reduced = useReducedMotion()
   const retry = useRetry(debate.id)
-  const empathy = useEmpathy(debate.id)
+  const empathy = useEmpathyOnce(debate.id)
+  const reasonId = useId()
 
   const items = list.items
   const [index, setIndex] = useState(0)
@@ -64,84 +70,57 @@ function Stage({ debate, list, refetch }: StageProps) {
   const [userPaused, setUserPaused] = useState(false)
   const [hold, setHold] = useState(false) // 마우스·포커스를 올리면 멈춤(17장)
   const [viewPartial, setViewPartial] = useState(false)
-  const [empathized, setEmpathized] = useState<ReadonlySet<number>>(new Set())
-  const [waitStart, setWaitStart] = useState<number | null>(null)
-  const [now, setNow] = useState(() => Date.now())
+  const [typedId, setTypedId] = useState<number | null>(null) // 타자가 끝난 발언
+  const [revealId, setRevealId] = useState<number | null>(null) // [다음 발언]으로 즉시 완성한 발언
+  const [checking, setChecking] = useState(false) // 60초 안내에서 사용자가 누른 새로고침 진행 중
 
   const current: Utterance | undefined = items[Math.min(index, items.length - 1)]
-  const typing = useTypewriter(current?.text ?? '', current?.id ?? 0, reduced)
+  const typed = current !== undefined && typedId === current.id
   const nextAvailable = index + 1 < items.length
   const isLast = current?.seq === list.total
-  const atEnd = !nextAvailable && typing.done
-  const nameOf = (u: Pick<Utterance, 'side'>) => memberOf(debate, u.side).name
+  const atEnd = !nextAvailable && typed
   const nextSeq = (current?.seq ?? 0) + 1
-  const nextSide = nextSeq % 2 === 1 ? 'A' : 'B'
+  const nextSide = speakerOf(nextSeq)
   const nextMember = memberOf(debate, nextSide)
-  const nextRound = Math.ceil(nextSeq / 2)
+  const nextRound = roundOf(nextSeq)
 
-  const generating = list.status === 'generating'
-  const waiting = generating && (items.length === 0 || (atEnd && !isLast))
+  const waiting = list.status === 'generating' && (items.length === 0 || (atEnd && !isLast))
   const showPaused = list.status === 'paused' && (items.length === 0 || !viewPartial || (atEnd && !isLast))
-  const elapsed = waitStart === null ? 0 : (now - waitStart) / 1000
+  const wait = useWaitElapsed(waiting)
 
-  // 기다리기 시작한 시각을 기억하고 1초마다 다시 그려 30초·60초 안내를 띄운다.
-  useEffect(() => {
-    if (!waiting) {
-      setWaitStart(null)
-      return
-    }
-    setWaitStart((s) => s ?? Date.now())
-    const tick = window.setInterval(() => setNow(Date.now()), 1000)
-    return () => window.clearInterval(tick)
-  }, [waiting])
-
-  // 다시보기 자동 진행: 자막이 뜨고 잠시 뒤 다음 발언으로.
-  useEffect(() => {
-    if (!autoplay || userPaused || hold || !typing.done || !nextAvailable) return
-    const timer = window.setTimeout(() => setIndex((i) => i + 1), AUTO_ADVANCE_MS)
-    return () => window.clearTimeout(timer)
-  }, [autoplay, userPaused, hold, typing.done, nextAvailable, index])
+  const advance = useCallback(() => setIndex((i) => i + 1), [])
+  useAutoAdvance(autoplay && !userPaused && !hold && typed && nextAvailable, AUTO_ADVANCE_MS, advance, index)
+  const onTyped = useCallback((uid: number) => setTypedId(uid), [])
 
   const resultPath = `/debates/${encodeURIComponent(debate.id)}/result`
   const canJumpToResult = getViewChoice(debate.id) !== null
 
   const onNext = () => {
-    if (!typing.done) return typing.complete()
-    if (nextAvailable) return setIndex((i) => i + 1)
+    if (!current) return
+    if (!typed) return setRevealId(current.id)
+    if (nextAvailable) return advance()
     if (isLast) navigate(resultPath)
   }
 
   const onRetry = async () => {
+    if (retry.isPending) return // 연타 방지
     try {
       await retry.mutateAsync()
       setViewPartial(true)
-      setWaitStart(null)
     } catch (e) {
-      if (e instanceof ApiError && e.code === 'retry_too_soon') {
-        toast.show(`${Number(e.extra.retry_after) || 60}초 뒤에 다시 시도해 주세요.`)
-      } else if (e instanceof ApiError && e.code === 'retry_limit') {
-        toast.show('이 토론은 더 이어서 만들 수 없어요. 다른 토론을 봐 주세요.')
-      } else if (e instanceof ApiError && e.code === 'not_paused') {
-        refetch() // 그사이 다시 생성 중이 됐다
-      } else {
-        toast.show('다시 시도하지 못했어요. 잠시 후 눌러 주세요.')
-      }
+      const message = retryErrorMessage(e)
+      if (message === null) void refetch()
+      else toast.show(message)
     }
   }
 
-  const onEmpathy = (u: Utterance) => {
-    if (empathized.has(u.id)) return
-    setEmpathized((s) => new Set(s).add(u.id))
-    empathy.mutate(u.id, {
-      onError: () => {
-        setEmpathized((s) => {
-          const next = new Set(s)
-          next.delete(u.id)
-          return next
-        })
-        toast.show('공감을 남기지 못했어요.')
-      },
-    })
+  // 60초 안내의 [다시 시도]: 생성 중이라 재시도 API 대상이 아니므로, 기다린 시간을 다시 재고 목록을 새로 읽는다
+  // (서버는 멈춘 생성 작업을 이 요청에서 다시 깨운다 — needs_kick). Q-012
+  const onRefresh = () => {
+    if (checking) return
+    wait.reset()
+    setChecking(true)
+    void refetch().finally(() => setChecking(false))
   }
 
   const header = (
@@ -177,25 +156,15 @@ function Stage({ debate, list, refetch }: StageProps) {
   )
 
   if (showPaused) {
-    const doneRounds = Math.floor(items.length / 2)
     return (
       <div className={styles.page}>
         {header}
-        <StateBlock
-          layout="inline"
-          character="penguin"
-          title="토론이 잠깐 멈췄어요"
-          description={
-            doneRounds > 0
-              ? `${doneRounds}라운드까지는 완성됐어요. 다시 시도하면 멈춘 곳부터 이어서 만들어요.`
-              : '다시 시도하면 처음부터 이어서 만들어요.'
-          }
-          primary={{ label: retry.isPending ? '요청하는 중…' : '다시 시도', onClick: onRetry }}
-          secondary={
-            items.length > 0 && !viewPartial
-              ? { label: doneRounds > 0 ? `${doneRounds}라운드까지 보기` : '지금까지 보기', onClick: () => setViewPartial(true), variant: 'text' }
-              : undefined
-          }
+        <PausedBlock
+          doneRounds={completedRounds(items.length)}
+          hasUtterances={items.length > 0}
+          retrying={retry.isPending}
+          onRetry={onRetry}
+          onViewPartial={viewPartial ? undefined : () => setViewPartial(true)}
         />
       </div>
     )
@@ -207,7 +176,7 @@ function Stage({ debate, list, refetch }: StageProps) {
     return (
       <div className={styles.page}>
         {header}
-        <WaitingNotice elapsed={elapsed} onRetry={refetch}>
+        <WaitingNotice elapsed={wait.elapsed} refreshing={checking} onRefresh={onRefresh}>
           <Character character={first.character} size={160} />
           <p className={`ts-body-15-m ${styles.sub}`}>{withIGa(first.name)} 1R 주장을 준비하고 있어요</p>
         </WaitingNotice>
@@ -217,7 +186,8 @@ function Stage({ debate, list, refetch }: StageProps) {
 
   const member = memberOf(debate, current.side)
   const reason = `${withIGa(nextMember.name)} ${nextRound}R ${ROUND_NAMES[nextRound - 1]} 준비 중이에요`
-  const nextDisabled = typing.done && !nextAvailable && !isLast
+  const nextDisabled = typed && !nextAvailable && !isLast
+  const pressed = empathy.pressed.has(current.id)
 
   return (
     <div className={styles.page}>
@@ -245,11 +215,15 @@ function Stage({ debate, list, refetch }: StageProps) {
           </div>
         </div>
 
-        <p className={`ts-body-15-r ${styles.text}`}>
-          <span className="sr-only">{current.text}</span>
-          <span aria-hidden="true">{typing.shown}</span>
-        </p>
-        {typing.done && <CaptionBox caption={current.caption} />}
+        <TypedText
+          key={current.id}
+          text={current.text}
+          utteranceId={current.id}
+          instant={reduced || revealId === current.id}
+          onDone={onTyped}
+          className={`ts-body-15-r ${styles.text}`}
+        />
+        {typed && <CaptionBox caption={current.caption} />}
 
         <div className={styles.gap24} />
 
@@ -261,30 +235,35 @@ function Stage({ debate, list, refetch }: StageProps) {
             </p>
           </div>
         )}
-        {waiting && <WaitingNotice elapsed={elapsed} onRetry={refetch} compact />}
+        {waiting && <WaitingNotice elapsed={wait.elapsed} refreshing={checking} onRefresh={onRefresh} compact />}
 
         <div className={styles.actions}>
           <Button
             variant="secondary"
             className={styles.empathy}
-            icon={<Heart size={20} weight={empathized.has(current.id) ? 'fill' : 'regular'} className={empathized.has(current.id) ? styles.heartOn : undefined} />}
-            aria-pressed={empathized.has(current.id)}
+            icon={<Heart size={20} weight={pressed ? 'fill' : 'regular'} className={pressed ? styles.heartOn : undefined} />}
+            aria-pressed={pressed}
             aria-label={`공감 ${current.empathy_count}`}
-            onClick={() => onEmpathy(current)}
+            onClick={() => empathy.press(current.id)}
           >
             공감 {current.empathy_count}
           </Button>
-          <Button className={styles.nextButton} softDisabled={nextDisabled} aria-describedby={nextDisabled ? 'next-reason' : undefined} onClick={onNext}>
-            {isLast && typing.done ? '결과 보기' : '다음 발언'}
+          <Button
+            className={styles.nextButton}
+            softDisabled={nextDisabled}
+            aria-describedby={nextDisabled ? reasonId : undefined}
+            onClick={onNext}
+          >
+            {isLast && typed ? '결과 보기' : '다음 발언'}
           </Button>
           {nextDisabled && (
-            <span id="next-reason" className="sr-only">
+            <span id={reasonId} className="sr-only">
               {reason}
             </span>
           )}
         </div>
 
-        <PastUtterances items={items.slice(0, index)} nameOf={nameOf} />
+        <PastUtterances items={items.slice(0, index)} nameOf={(u) => memberOf(debate, u.side).name} />
       </section>
     </div>
   )
@@ -292,21 +271,23 @@ function Stage({ debate, list, refetch }: StageProps) {
 
 function WaitingNotice({
   elapsed,
-  onRetry,
+  refreshing,
+  onRefresh,
   compact,
   children,
 }: {
   elapsed: number
-  onRetry: () => void
+  refreshing: boolean
+  onRefresh: () => void
   compact?: boolean
-  children?: React.ReactNode
+  children?: ReactNode
 }) {
   if (elapsed >= STALLED_AFTER_S) {
     return (
       <div className={styles.inlineError} role="alert">
-        <p className="ts-body-15-m">토론이 잠깐 멈췄어요. 다시 시도하면 이어서 만들어요.</p>
-        <Button variant="secondary" size="m" onClick={onRetry}>
-          다시 시도
+        <p className="ts-body-15-m">{PAUSED_TITLE}. 다시 시도하면 이어서 만들어요.</p>
+        <Button variant="secondary" size="m" softDisabled={refreshing} onClick={onRefresh}>
+          {refreshing ? '다시 확인하는 중…' : '다시 시도'}
         </Button>
       </div>
     )

@@ -54,4 +54,6 @@ def empathize(db: Session, utterance_id: int, browser_id: str, client: str) -> i
         db.commit()
     except IntegrityError:
         db.rollback()
+        if not _already_empathized(db, utterance_id, browser_id):
+            raise  # 같은 브라우저 중복이 아닌 다른 제약 위반 → 500으로(성공처럼 숨기지 않음)
     return empathy_count(db, utterance_id)

@@ -39,3 +39,39 @@ def test_empathy_rate_limit(client, db, monkeypatch):
     assert client.post(f"/api/utterances/{u1.id}/empathy").status_code == 200
     assert client.post(f"/api/utterances/{u1.id}/empathy").status_code == 200  # 이미 한 공감 재요청은 그대로
     assert client.post(f"/api/utterances/{u2.id}/empathy").status_code == 429
+
+
+def test_client_ip_prefers_platform_headers():
+    from starlette.requests import Request
+
+    from app.deps import client_ip
+
+    def req(headers):
+        scope = {"type": "http", "headers": [(k.encode(), v.encode()) for k, v in headers.items()], "client": ("10.0.0.1", 1)}
+        return Request(scope)
+
+    spoofed = req({"x-forwarded-for": "1.1.1.1, 9.9.9.9"})
+    assert client_ip(spoofed, trust_proxy=False) == "10.0.0.1"
+    assert client_ip(spoofed, trust_proxy=True) == "9.9.9.9"  # 요청자가 끼운 앞 값은 무시
+    assert client_ip(req({"x-vercel-forwarded-for": "5.5.5.5", "x-forwarded-for": "1.1.1.1"}), trust_proxy=True) == "5.5.5.5"
+    assert client_ip(req({"x-real-ip": "6.6.6.6"}), trust_proxy=True) == "6.6.6.6"
+
+
+def test_concurrent_duplicate_empathy(db, monkeypatch):
+    from app.models import Empathy
+    from app.services import audience
+    from tests.conftest import BROWSER
+
+    d = make_debate(db, utterances=1)
+    u = _first_utterance(db, d)
+    db.add(Empathy(utterance_id=u.id, browser_id=BROWSER))
+    db.commit()
+    real = audience._already_empathized
+    calls = {"n": 0}
+
+    def first_blind(*args):
+        calls["n"] += 1
+        return False if calls["n"] == 1 else real(*args)
+
+    monkeypatch.setattr(audience, "_already_empathized", first_blind)
+    assert audience.empathize(db, u.id, BROWSER, "c") == 1

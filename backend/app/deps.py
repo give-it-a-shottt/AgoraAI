@@ -30,12 +30,22 @@ BrowserId = Annotated[str, Depends(browser_id)]
 def client_key(request: Request) -> str:
     """요청 수 제한용 접속자 키(IP 해시). IP 원문은 어디에도 저장하지 않는다."""
     settings = get_settings()
-    ip = request.client.host if request.client else "unknown"
-    if settings.trust_proxy:
-        forwarded = request.headers.get("x-forwarded-for", "")
-        if forwarded:
-            ip = forwarded.split(",")[0].strip()
-    return client_hash(ip, settings.session_secret)
+    return client_hash(client_ip(request, settings.trust_proxy), settings.session_secret)
+
+
+def client_ip(request: Request, trust_proxy: bool) -> str:
+    """접속 주소. 앞단 프록시를 믿을 때만 헤더를 본다.
+    - x-vercel-forwarded-for / x-real-ip: Vercel이 직접 넣는 값(요청자가 바꿀 수 없음)
+    - X-Forwarded-For는 요청자가 앞부분을 끼워 넣을 수 있어, 프록시가 마지막에 붙인 맨 오른쪽 값만 쓴다."""
+    direct = request.client.host if request.client else "unknown"
+    if not trust_proxy:
+        return direct
+    for header in ("x-vercel-forwarded-for", "x-real-ip"):
+        value = request.headers.get(header, "").split(",")[0].strip()
+        if value:
+            return value
+    forwarded = [p.strip() for p in request.headers.get("x-forwarded-for", "").split(",") if p.strip()]
+    return forwarded[-1] if forwarded else direct
 
 
 ClientKey = Annotated[str, Depends(client_key)]

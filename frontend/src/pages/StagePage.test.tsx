@@ -77,7 +77,7 @@ describe('StagePage (DEB_01_002)', () => {
     expect(screen.getByRole('listitem', { current: 'step' })).toHaveTextContent('1R 주장')
 
     await act(async () => vi.advanceTimersByTime(AUTO_ADVANCE_MS + 10))
-    expect(screen.getByText('자막2')).toBeInTheDocument()
+    expect(await screen.findByText('자막2')).toBeInTheDocument()
 
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     await user.click(screen.getByRole('button', { name: '자동 진행 멈춤' }))
@@ -184,5 +184,65 @@ describe('StagePage (DEB_01_002)', () => {
       if (url.pathname === '/api/debates/d1/utterances') return { status: 410, body: { detail: { code: 'hidden', message: 'x' } } }
     })
     expect(await screen.findByRole('heading', { name: '신고가 많아 가려 둔 토론이에요' })).toBeInTheDocument()
+  })
+})
+
+describe('StagePage 예외 경로', () => {
+  it('공감이 실패하면 눌림을 되돌리고 알린다', async () => {
+    setup(list(1, 'generating'), (url, init) => {
+      if (url.pathname === '/api/utterances/1/empathy' && init.method === 'POST')
+        return { status: 429, body: { detail: { code: 'too_many_requests', message: 'x', retry_after: 5 } } }
+    })
+    await userEvent.click(await screen.findByRole('button', { name: '공감 0' }))
+    expect(await screen.findByText('공감을 남기지 못했어요.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '공감 0' })).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('다시 시도했는데 이미 생성 중이면(not_paused) 목록을 다시 읽는다', async () => {
+    let calls = 0
+    setup(
+      () => {
+        calls += 1
+        return { ...list(2), status: calls === 1 ? 'paused' : 'generating' }
+      },
+      (url, init) => {
+        if (url.pathname === '/api/debates/d1/retry' && init.method === 'POST')
+          return { status: 409, body: { detail: { code: 'not_paused', message: 'x' } } }
+      },
+    )
+    await userEvent.click(await screen.findByRole('button', { name: '다시 시도' }))
+    expect(await screen.findByText('자막1')).toBeInTheDocument()
+  })
+
+  it('없는 토론이면 COM_01_003', async () => {
+    setup(list(0), (url) => {
+      if (url.pathname === '/api/debates/d1') return { status: 404, body: { detail: { code: 'not_found', message: 'x' } } }
+    })
+    expect(await screen.findByRole('heading', { name: '없는 페이지예요' })).toBeInTheDocument()
+  })
+
+  it('폴링 중 잠깐 실패해도 보던 무대를 유지한다', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    let calls = 0
+    setup(list(1, 'generating'), (url) => {
+      if (url.pathname === '/api/debates/d1/utterances') {
+        calls += 1
+        if (calls > 1) return { status: 500, body: { detail: { code: 'internal', message: 'x' } } }
+      }
+    })
+    expect(await screen.findByText('자막1')).toBeInTheDocument()
+    await act(async () => vi.advanceTimersByTime(10_000))
+    expect(screen.getByText('자막1')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '잠시 문제가 생겼어요' })).not.toBeInTheDocument()
+  })
+
+  it('60초 안내의 [다시 시도]는 기다린 시간을 다시 잰다', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    setup(list(1, 'generating'))
+    await screen.findByText('자막1')
+    await act(async () => vi.advanceTimersByTime((STALLED_AFTER_S + 1) * 1000))
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    await user.click(screen.getByRole('button', { name: '다시 시도' }))
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 })
