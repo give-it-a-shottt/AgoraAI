@@ -100,3 +100,24 @@ def test_migration_creates_all_tables_and_matches_models(tmp_path, monkeypatch):
         command.check(cfg)  # autogenerate 차이가 있으면 예외
     finally:
         get_settings.cache_clear()
+
+
+def test_migration_sql_is_valid_for_postgres(monkeypatch):
+    """운영 DB(Postgres)용 SQL을 접속 없이 만들어 본다. SQLite는 BOOLEAN DEFAULT 0을 받아 주지만
+    Postgres는 거부한다 — 실제 Neon 배포에서 발견(2026-11-22)."""
+    import io
+    import re
+
+    monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@localhost/db")
+    from app.config import get_settings
+
+    get_settings.cache_clear()
+    try:
+        buf = io.StringIO()
+        command.upgrade(Config("alembic.ini", output_buffer=buf), "head", sql=True)
+        sql = buf.getvalue()
+        assert "CREATE TABLE debates" in sql
+        assert not re.search(r"BOOLEAN DEFAULT '?[01]'?", sql)
+        assert not re.search(r"INTEGER DEFAULT (true|false)", sql)
+    finally:
+        get_settings.cache_clear()
